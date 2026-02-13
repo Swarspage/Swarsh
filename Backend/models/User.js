@@ -12,7 +12,12 @@ const userSchema = new mongoose.Schema({
         song: String,
         movie: String
     },
-    uploadedPhotos: [String],
+    uploadedPhotos: [{
+        url: { type: String, required: true },
+        caption: { type: String, default: '' },
+        contextTags: [String],
+        uploadedAt: { type: Date, default: Date.now }
+    }],
     bio: String,
     inviteCode: { type: String, sparse: true }, // Sparse allows multiple null values
     pairedWith: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },

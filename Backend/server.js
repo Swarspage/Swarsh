@@ -252,37 +252,43 @@ app.put('/api/user/settings', async (req, res) => {
 // Upload photo
 app.post('/api/user/upload-photo', upload.single('image'), async (req, res) => {
     try {
-        console.log('==== PHOTO UPLOAD START ====');
-        console.log('Session userId:', req.session.userId);
-        console.log('Has file?:', !!req.file);
-
         if (!req.session.userId) return res.status(401).json({ error: 'Not logged in' });
 
         if (!req.file) {
-            console.log('No file in request');
             return res.status(400).json({ error: 'No image file uploaded' });
         }
-
-        console.log('File details:', {
-            fieldname: req.file.fieldname,
-            originalname: req.file.originalname,
-            mimetype: req.file.mimetype,
-            size: req.file.size,
-            path: req.file.path
-        });
 
         const imageUrl = req.file.path;
         console.log('Cloudinary URL:', imageUrl);
 
-        console.log('Updating user document...');
+        // Get caption and tags from body
+        const { caption, contextTags } = req.body;
+        let tags = [];
+        if (contextTags) {
+            try {
+                // If it's a stringified array (from FormData), parse it
+                tags = JSON.parse(contextTags);
+            } catch (e) {
+                // If it's just a string, wrap it
+                tags = [contextTags];
+            }
+        }
+
+        const newPhoto = {
+            url: imageUrl,
+            caption: caption || '',
+            contextTags: tags,
+            uploadedAt: new Date()
+        };
+
+        console.log('Updating user document with new photo object...');
         const result = await User.findByIdAndUpdate(req.session.userId, {
-            $push: { uploadedPhotos: imageUrl }
-        });
+            $push: { uploadedPhotos: newPhoto }
+        }, { new: true }); // Return updated doc
 
-        console.log('Update result:', !!result);
-        console.log('==== PHOTO UPLOAD SUCCESS ====');
+        const addedPhoto = result.uploadedPhotos[result.uploadedPhotos.length - 1];
 
-        res.json({ message: 'Photo uploaded', url: imageUrl });
+        res.json({ message: 'Photo uploaded', photo: addedPhoto });
     } catch (error) {
         console.error('Photo upload ERROR:', error.message);
         res.status(500).json({ error: error.message });
@@ -303,16 +309,43 @@ app.post('/api/user/profile-picture', upload.single('image'), async (req, res) =
 });
 
 // Delete photo
-app.delete('/api/user/photo/:url', async (req, res) => {
+app.delete('/api/user/photo/:photoId', async (req, res) => {
     if (!req.session.userId) return res.status(401).json({ error: 'Not logged in' });
 
-    const photoUrl = decodeURIComponent(req.params.url);
+    const photoId = req.params.photoId;
 
     await User.findByIdAndUpdate(req.session.userId, {
-        $pull: { uploadedPhotos: photoUrl }
+        $pull: { uploadedPhotos: { _id: photoId } }
     });
 
     res.json({ message: 'Photo deleted' });
+});
+
+// Update gallery photo details
+app.put('/api/user/gallery/:photoId', async (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Not logged in' });
+
+    const { photoId } = req.params;
+    const { caption, contextTags } = req.body;
+
+    try {
+        const user = await User.findOneAndUpdate(
+            { _id: req.session.userId, "uploadedPhotos._id": photoId },
+            {
+                $set: {
+                    "uploadedPhotos.$.caption": caption,
+                    "uploadedPhotos.$.contextTags": contextTags
+                }
+            },
+            { new: true }
+        );
+
+        if (!user) return res.status(404).json({ error: 'Photo not found' });
+
+        res.json({ message: 'Photo updated', user });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 });
 
 // ========================
@@ -328,11 +361,22 @@ app.get('/api/swipe/next', async (req, res) => {
 
     // Only get photos from OTHER users (not current user)
     const allPhotos = otherUsers.flatMap(user =>
-        user.uploadedPhotos.map(url => ({
-            url,
-            ownerId: user._id,
-            ownerName: user.name
-        }))
+        user.uploadedPhotos.map(photo => {
+            // Check if photo is object or string (legacy)
+            const url = typeof photo === 'string' ? photo : photo.url;
+            const caption = typeof photo === 'string' ? '' : photo.caption;
+            const contextTags = typeof photo === 'string' ? [] : photo.contextTags;
+            const photoId = typeof photo === 'string' ? null : photo._id;
+
+            return {
+                url,
+                caption,
+                contextTags,
+                photoId,
+                ownerId: user._id,
+                ownerName: user.name
+            };
+        })
     );
 
     console.log('Other users:', otherUsers.length);
@@ -363,10 +407,13 @@ app.get('/api/users/:userId/photo', async (req, res) => {
         // Collect all available photos
         let photos = [];
         if (user.uploadedPhotos && user.uploadedPhotos.length > 0) {
-            photos = [...user.uploadedPhotos];
+            photos = user.uploadedPhotos.map(p => {
+                if (typeof p === 'string') return { url: p };
+                return p;
+            });
         }
         if (user.profilePicture) {
-            photos.push(user.profilePicture);
+            photos.push({ url: user.profilePicture, isProfilePic: true });
         }
 
         if (photos.length === 0) {
@@ -374,11 +421,14 @@ app.get('/api/users/:userId/photo', async (req, res) => {
         }
 
         // Pick a random one for "infinite" feel
-        const randomUrl = photos[Math.floor(Math.random() * photos.length)];
+        const randomPhoto = photos[Math.floor(Math.random() * photos.length)];
 
         // Return in the format expected by frontend
         const photoData = {
-            url: randomUrl,
+            url: randomPhoto.url,
+            caption: randomPhoto.caption || '',
+            contextTags: randomPhoto.contextTags || [],
+            photoId: randomPhoto._id || 'profile',
             ownerId: user._id,
             ownerName: user.name
         };

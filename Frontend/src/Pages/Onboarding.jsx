@@ -69,8 +69,14 @@ const Onboarding = () => {
     const removePhoto = (index) => {
         const newPhotos = uploadedPhotosPreview.filter((_, i) => i !== index);
         const newFiles = formData.uploadedPhotos.filter((_, i) => i !== index);
+        const newCaptions = (formData.captions || []).filter((_, i) => i !== index);
+
         setUploadedPhotosPreview(newPhotos);
-        setFormData({ ...formData, uploadedPhotos: newFiles });
+        setFormData({
+            ...formData,
+            uploadedPhotos: newFiles,
+            captions: newCaptions
+        });
     };
 
     const handleNext = () => {
@@ -124,6 +130,16 @@ const Onboarding = () => {
                         console.log(`Uploading photo ${i + 1}/${formData.uploadedPhotos.length}...`);
                         const photoFormData = new FormData();
                         photoFormData.append('image', photo);
+
+                        // Add caption if exists
+                        const caption = formData.captions?.[i] || '';
+                        if (caption) {
+                            photoFormData.append('caption', caption);
+                        }
+
+                        // Add default context tag for now (can be expanded later)
+                        photoFormData.append('contextTags', JSON.stringify(['Onboarding']));
+
                         await api.post('/user/upload-photo', photoFormData, {
                             headers: { 'Content-Type': 'multipart/form-data' }
                         });
@@ -477,33 +493,45 @@ const Onboarding = () => {
                                     Show off your best self. Upload at least 3 photos to help us find your perfect match.
                                 </p>
 
-                                {/* Photo Grid */}
-                                <div className="grid grid-cols-3 gap-4 mb-6">
+                                {/* Photos Grid */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                                     {uploadedPhotosPreview.map((photo, index) => (
                                         <motion.div
                                             key={index}
                                             initial={{ scale: 0 }}
                                             animate={{ scale: 1 }}
-                                            className="relative aspect-square rounded-2xl overflow-hidden group"
-                                            onMouseEnter={() => setHoveredPhotoIndex(index)}
-                                            onMouseLeave={() => setHoveredPhotoIndex(null)}
+                                            className="relative bg-white/5 rounded-2xl p-3 border border-white/10"
                                         >
-                                            <img src={photo} alt={`Upload ${index + 1}`} className="w-full h-full object-cover" />
-                                            {index === 0 && (
-                                                <div className="absolute top-2 left-2 bg-pink-600 text-white text-xs font-bold px-2 py-1 rounded-full">
-                                                    Main
-                                                </div>
-                                            )}
-                                            {hoveredPhotoIndex === index && (
+                                            <div className="relative aspect-video rounded-xl overflow-hidden group mb-3">
+                                                <img src={photo} alt={`Upload ${index + 1}`} className="w-full h-full object-cover" />
+                                                {index === 0 && (
+                                                    <div className="absolute top-2 left-2 bg-pink-600 text-white text-xs font-bold px-2 py-1 rounded-full">
+                                                        Main Pic
+                                                    </div>
+                                                )}
                                                 <motion.button
-                                                    initial={{ opacity: 0 }}
-                                                    animate={{ opacity: 1 }}
                                                     onClick={() => removePhoto(index)}
-                                                    className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-full hover:bg-red-600"
+                                                    className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-full hover:bg-red-600 shadow-lg"
                                                 >
-                                                    <FaTimes />
+                                                    <FaTimes size={12} />
                                                 </motion.button>
-                                            )}
+                                            </div>
+
+                                            {/* Caption Input */}
+                                            <div className="relative">
+                                                <FaEdit className="absolute top-3 left-3 text-pink-500 text-xs" />
+                                                <input
+                                                    type="text"
+                                                    placeholder="Write a caption..."
+                                                    value={formData.captions?.[index] || ''} // Use safe access
+                                                    onChange={(e) => {
+                                                        const newCaptions = [...(formData.captions || [])];
+                                                        newCaptions[index] = e.target.value;
+                                                        setFormData({ ...formData, captions: newCaptions });
+                                                    }}
+                                                    className={`w-full bg-black/20 rounded-lg py-2 pl-8 pr-3 text-xs outline-none border border-white/10 focus:border-pink-500/50 transition-colors ${theme === 'light' ? 'text-gray-700 bg-gray-50' : 'text-white'}`}
+                                                />
+                                            </div>
                                         </motion.div>
                                     ))}
 
@@ -512,15 +540,15 @@ const Onboarding = () => {
                                         <label
                                             key={`empty-${index}`}
                                             htmlFor="photoUpload"
-                                            className={`aspect-square rounded-2xl border-4 border-dashed flex items-center justify-center cursor-pointer transition-all
-                                                ${theme === 'light' ? 'border-pink-200 bg-pink-50 hover:border-pink-400' : 'border-pink-500/30 bg-pink-900/10 hover:border-pink-500'}`}
+                                            className={`aspect-video rounded-2xl border-2 border-dashed flex flex-col items-center justify-center cursor-pointer transition-all gap-2
+                                                    ${theme === 'light' ? 'border-pink-200 bg-pink-50 hover:border-pink-400' : 'border-pink-500/30 bg-pink-900/10 hover:border-pink-500'}`}
                                         >
-                                            <div className="text-center">
-                                                <div className="text-pink-500 text-3xl mb-1">+</div>
-                                                <p className={`text-xs font-medium ${theme === 'light' ? 'text-pink-600' : 'text-pink-400'}`}>
-                                                    Add Photo
-                                                </p>
+                                            <div className="w-10 h-10 rounded-full bg-pink-500/20 flex items-center justify-center text-pink-500">
+                                                <FaCamera />
                                             </div>
+                                            <p className={`text-xs font-bold ${theme === 'light' ? 'text-pink-600' : 'text-pink-400'}`}>
+                                                Add Photo
+                                            </p>
                                         </label>
                                     ))}
                                 </div>

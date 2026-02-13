@@ -213,12 +213,18 @@ const UserProfileSetting = () => {
 
     // --- Upload Handlers ---
     const fileInputRef = React.useRef(null);
+    const profilePicInputRef = React.useRef(null); // Ref for profile picture input
     const [uploading, setUploading] = useState(false);
+    const [uploadingProfilePic, setUploadingProfilePic] = useState(false); // State for profile pic upload
     const [newPhoto, setNewPhoto] = useState(null); // { file: File, preview: string }
     const [newPhotoDetails, setNewPhotoDetails] = useState({ caption: '', contextTags: '' });
 
     const handleAddPhotoClick = () => {
         fileInputRef.current?.click();
+    };
+
+    const handleProfilePicClick = () => {
+        profilePicInputRef.current?.click();
     };
 
     const handleFileChange = (e) => {
@@ -227,6 +233,34 @@ const UserProfileSetting = () => {
             const preview = URL.createObjectURL(file);
             setNewPhoto({ file, preview });
             setNewPhotoDetails({ caption: '', contextTags: '' });
+        }
+    };
+
+    const handleProfilePicChange = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setUploadingProfilePic(true);
+        const formData = new FormData();
+        formData.append('image', file);
+
+        try {
+            const response = await api.post('/user/profile-picture', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+
+            // Update local state immediately
+            setUser(prev => ({
+                ...prev,
+                profilePicture: response.data.url
+            }));
+
+            // Optional: Show success feedback?
+        } catch (error) {
+            console.error("Failed to update profile picture:", error);
+            alert("Failed to update profile picture.");
+        } finally {
+            setUploadingProfilePic(false);
         }
     };
 
@@ -285,6 +319,15 @@ const UserProfileSetting = () => {
                 accept="image/*"
             />
 
+            {/* Hidden Profile Pic Input */}
+            <input
+                type="file"
+                ref={profilePicInputRef}
+                onChange={handleProfilePicChange}
+                className="hidden"
+                accept="image/*"
+            />
+
             {/* Loading State */}
             {loading || !user ? (
                 <div className="h-full flex items-center justify-center pt-40">
@@ -314,16 +357,25 @@ const UserProfileSetting = () => {
                         >
                             <div className="flex flex-col md:flex-row items-center md:items-start gap-8">
                                 {/* Profile Picture */}
-                                <div className="relative">
+                                <div className="relative group cursor-pointer" onClick={handleProfilePicClick}>
                                     <div className="w-40 h-40 rounded-full bg-gradient-to-br from-pink via-pink-2 to-burgundy-dark p-[3px]">
-                                        <div className="w-full h-full rounded-full border-4 border-white overflow-hidden">
-                                            <img src={user.profilePicture} alt={user.name} className="w-full h-full object-cover" />
+                                        <div className="w-full h-full rounded-full border-4 border-white overflow-hidden relative">
+                                            <img src={user.profilePicture} alt={user.name} className="w-full h-full object-cover transition-opacity group-hover:opacity-80" />
+                                            {uploadingProfilePic && (
+                                                <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                                                    <motion.div
+                                                        animate={{ rotate: 360 }}
+                                                        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                                                        className="w-8 h-8 border-2 border-white border-t-transparent rounded-full"
+                                                    />
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                     <motion.button
                                         whileHover={{ scale: 1.1 }}
                                         whileTap={{ scale: 0.9 }}
-                                        className="absolute bottom-2 right-2 w-10 h-10 bg-pink rounded-full flex items-center justify-center shadow-lg border-2 border-white text-white"
+                                        className="absolute bottom-2 right-2 w-10 h-10 bg-pink rounded-full flex items-center justify-center shadow-lg border-2 border-white text-white pointer-events-none" // pointer-events-none so click passes to parent
                                     >
                                         <FaCamera className="text-sm" />
                                     </motion.button>

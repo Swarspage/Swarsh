@@ -1,22 +1,31 @@
-@import url('https://fonts.googleapis.com/css2?family=Delius&family=Poiret+One&family=Quicksand:wght@300..700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
 @import "tailwindcss";
 
 @theme {
-  --color-burgundy: #4A0E1F;
-  --color-burgundy-dark: #5C1428;
-  --color-pink: #E91E63;
-  --color-pink-2: #EC407A;
-  --color-blush: #FFD6E5;
-  --color-heart-red: #C62828;
-  --color-off-white: #FFF9FB;
-  --color-pink-vibrant: #E91E63;
+  /* Romantic Theme (Modern Blue) */
+  --color-burgundy: #0F1B3D;
+  --color-burgundy-dark: #1A2851;
+  --color-pink: #3D5AFE;
+  --color-pink-2: #536DFE;
+  --color-blush: #E8EEFF;
+  --color-heart-red: #FF4B6E;
+  --color-off-white: #FAFBFF;
+
+  /* Gradient Variables */
+  --gradient-primary: linear-gradient(135deg, #3D5AFE 0%, #536DFE 100%);
+  --gradient-card: linear-gradient(180deg, #1A2851 0%, #0F1B3D 100%);
+
+  /* Glass Morphism */
+  --glass-bg: rgba(26, 40, 81, 0.6);
+  --glass-border: rgba(255, 255, 255, 0.1);
+
+  /* Glow Effect */
+  --glow-blue: 0 0 20px rgba(61, 90, 254, 0.3);
 }
 
 * {
-  font-family: "Delius";
-  font-weight: bolder;
+  font-family: "Poppins", "Inter", sans-serif;
 }
-
 
 html,
 body {
@@ -46,9 +55,86 @@ body {
 }
 
 /* Hide scrollbar for IE, Edge and Firefox */
+/* Hide scrollbar for IE, Edge and Firefox */
 * {
   -ms-overflow-style: none;
   /* IE and Edge */
   scrollbar-width: none;
   /* Firefox */
+}
+
+/* Custom Utilities for Romantic Theme */
+@layer utilities {
+  .bg-glass-bg {
+    background-color: var(--glass-bg);
+  }
+
+  .border-glass-border {
+    border-color: var(--glass-border);
+  }
+
+  .bg-gradient-primary {
+    background: var(--gradient-primary);
+  }
+
+  .bg-gradient-card {
+    background: var(--gradient-card);
+  }
+
+  .text-gradient-primary {
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  /* Scrollbar Utilities */
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    /* IE and Edge */
+    scrollbar-width: none;
+    /* Firefox */
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 10px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.4);
+  }
+}
+
+/* Animations */
+@keyframes gradient-xy {
+  0% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.animate-gradient-xy {
+  background-size: 200% 200%;
+  animation: gradient-xy 6s ease infinite;
 }

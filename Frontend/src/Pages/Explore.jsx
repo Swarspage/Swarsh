@@ -139,7 +139,7 @@ const Explore = () => {
 
             {/* Main Card Area */}
             {/* Added min-h and background color to ensure visibility */}
-            <div className="relative z-10 w-full max-w-sm h-[60vh] min-h-[400px] md:h-[600px] mt-4 md:mt-32">
+            <div className="relative z-10 w-full max-w-sm h-[55vh] min-h-[400px] md:h-[550px] mt-4 md:mt-20 mb-24">
                 <AnimatePresence mode="wait">
                     {loading ? (
                         <motion.div
@@ -276,7 +276,7 @@ const Explore = () => {
             </div>
 
             {/* Action Buttons */}
-            <div className="absolute bottom-6 md:bottom-10 z-20 flex gap-6 md:gap-8 items-center">
+            <div className="absolute bottom-32 md:bottom-32 z-20 flex gap-6 md:gap-8 items-center">
                 <motion.button
                     whileHover={{ scale: 1.1 }}
                     whileTap={{ scale: 0.9 }}

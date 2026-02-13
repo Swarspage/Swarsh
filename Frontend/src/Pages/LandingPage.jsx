@@ -75,8 +75,8 @@ const LandingPage = () => {
     return (
         <div className={`min-h-screen w-full transition-all duration-500 relative overflow-hidden flex flex-col
             ${theme === 'light'
-                ? 'bg-gradient-to-br from-pink-300 via-pink-100 to-white text-[#4A0E1F]'
-                : 'bg-gradient-to-br from-[#4A0E1F] to-[#2A0E1A] text-white'}`}
+                ? 'bg-gradient-to-br from-blush via-white to-pink-100 text-burgundy'
+                : 'bg-gradient-to-br from-burgundy-dark to-[#2A0E1A] text-white'}`}
         >
             {/* Animated Background Gradients */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -259,7 +259,7 @@ const LandingPage = () => {
                         animate={{ opacity: 1 }}
                         transition={{ delay: 0.6 }}
                         className={`text-3xl md:text-4xl lg:text-5xl mb-10 md:mb-12 font-medium leading-tight
-                        ${theme === 'light' ? 'text-[#4A0E1F]' : 'text-white'}`}
+                        ${theme === 'light' ? 'text-burgundy' : 'text-white'}`}
                         style={{ fontFamily: "'Playfair Display', serif" }}
                     >
                         Will you be my valentine?
@@ -276,7 +276,7 @@ const LandingPage = () => {
                             whileHover={{ scale: 1.08, boxShadow: '0 10px 40px rgba(233,30,99,0.4)' }}
                             whileTap={{ scale: 0.95 }}
                             onClick={() => navigate('/signup')}
-                            className="bg-[#E91E63] text-white px-12 py-4 rounded-full font-bold text-lg shadow-xl shadow-pink-500/40 flex items-center gap-2.5 hover:bg-[#D81B60] transition-all relative overflow-hidden group"
+                            className="bg-pink text-white px-12 py-4 rounded-full font-bold text-lg shadow-xl shadow-pink/40 flex items-center gap-2.5 hover:bg-pink-2 transition-all relative overflow-hidden group"
                         >
                             <span className="relative z-10">Yes</span>
                             <FaHeart className="text-base relative z-10 group-hover:scale-125 transition-transform" />
@@ -341,7 +341,7 @@ const LandingPage = () => {
                     <motion.button
                         whileHover={{ scale: 1.05 }}
                         onClick={() => navigate('/signup')}
-                        className="text-pink-vibrant font-bold hover:underline underline-offset-2 ml-1"
+                        className="text-pink font-bold hover:underline underline-offset-2 ml-1"
                     >
                         Create one
                     </motion.button>

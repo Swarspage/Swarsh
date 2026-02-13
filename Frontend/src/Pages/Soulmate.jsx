@@ -1,15 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useOutletContext } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FaHeart, FaSearch, FaPaperPlane, FaPhone, FaVideo, FaEllipsisV, FaImage, FaSmile, FaBell, FaCamera } from 'react-icons/fa';
+import { FaHeart, FaSearch, FaPaperPlane, FaPhone, FaVideo, FaEllipsisV, FaImage, FaSmile, FaArrowLeft } from 'react-icons/fa';
 import { BsHeartFill } from 'react-icons/bs';
-import { io } from 'socket.io-client';
 import api from '../api/axios';
-import Navigation from '../components/Navigation';
 
 const Soulmate = () => {
     const navigate = useNavigate();
-    const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'light');
+    const { socket, theme } = useOutletContext();
     const [matches, setMatches] = useState([]);
     const [selectedMatch, setSelectedMatch] = useState(null);
     const [messages, setMessages] = useState([]);
@@ -17,16 +15,6 @@ const Soulmate = () => {
     const [isTyping, setIsTyping] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const messagesEndRef = useRef(null);
-    const socketRef = useRef(null);
-
-    // Theme sync
-    useEffect(() => {
-        if (theme === 'dark') {
-            document.documentElement.classList.add('dark');
-        } else {
-            document.documentElement.classList.remove('dark');
-        }
-    }, [theme]);
 
     // Fetch matches from backend
     const fetchMatches = async () => {
@@ -76,34 +64,37 @@ const Soulmate = () => {
 
     useEffect(() => {
         fetchMatches();
+    }, []);
 
-        // Setup Socket.io
-        socketRef.current = io('http://localhost:5000', {
-            withCredentials: true
-        });
+    useEffect(() => {
+        if (!socket) return;
 
-        socketRef.current.on('connect', () => {
-            console.log('Socket connected');
-        });
+        const handleNewMessage = (message) => {
+            // Check if the message belongs to the current selected conversation
+            if (selectedMatch && (message.senderId._id === selectedMatch.userId || message.receiverId === selectedMatch.userId)) {
+                setMessages(prev => [...prev, message]);
+            }
+        };
 
-        socketRef.current.on('new_message', (message) => {
-            setMessages(prev => [...prev, message]);
-        });
-
-        socketRef.current.on('user_typing', ({ userId, typing }) => {
+        const handleTyping = ({ userId, typing }) => {
             if (selectedMatch?.userId === userId) {
                 setIsTyping(typing);
             }
-        });
+        };
+
+        socket.on('new_message', handleNewMessage);
+        socket.on('user_typing', handleTyping);
 
         return () => {
-            socketRef.current?.disconnect();
+            socket.off('new_message', handleNewMessage);
+            socket.off('user_typing', handleTyping);
         };
-    }, []);
+    }, [socket, selectedMatch]);
 
     useEffect(() => {
         if (selectedMatch) {
             fetchMessages(selectedMatch.userId);
+            // Join room logic if needed, or just rely on global socket listening
         }
     }, [selectedMatch]);
 
@@ -124,6 +115,12 @@ const Soulmate = () => {
 
             setMessages(prev => [...prev, response.data.message]);
             setNewMessage('');
+
+            // Emit stop typing
+            if (socket) {
+                socket.emit('stop_typing', { receiverId: selectedMatch.userId, senderId: response.data.message.senderId });
+            }
+
         } catch (error) {
             console.error('Error sending message:', error);
         }
@@ -136,371 +133,305 @@ const Soulmate = () => {
         }
     };
 
+    const handleInput = (e) => {
+        setNewMessage(e.target.value);
+        if (socket && selectedMatch) {
+            socket.emit('typing', { receiverId: selectedMatch.userId });
+
+            // Debounce stop typing
+            // (Simplified here)
+        }
+    };
+
     // Filter matches by search
     const filteredMatches = matches.filter(match =>
         match.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
     return (
-        <div className={`min-h-screen w-full transition-all duration-500 relative overflow-hidden flex
-            ${theme === 'light'
-                ? 'bg-gradient-to-br from-pink-50 via-white to-pink-50'
-                : 'bg-gradient-to-br from-[#1A0510] via-[#0A0005] to-[#1A0510]'}`}
-        >
-            {/* Header */}
-            <motion.nav
-                initial={{ y: -100, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ duration: 0.6 }}
-                className={`fixed top-0 left-0 right-0 z-50 px-6 md:px-12 h-20 flex items-center justify-between
-                    ${theme === 'light' ? 'bg-white/80' : 'bg-black/60'} backdrop-blur-xl border-b
-                    ${theme === 'light' ? 'border-gray-200' : 'border-white/10'}`}
+        <div className="flex h-[calc(100vh-80px)] md:h-screen w-full relative overflow-hidden">
+
+            {/* Left Sidebar - Matches List */}
+            <motion.div
+                initial={{ x: -50, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                transition={{ duration: 0.5 }}
+                className={`w-full md:w-96 h-full flex flex-col border-r
+                    ${selectedMatch ? 'hidden md:flex' : 'flex'} // Hide on mobile if chat open
+                    ${theme === 'light' ? 'bg-white/60 border-gray-200' : 'bg-black/20 border-white/5'} backdrop-blur-xl`}
             >
-                <div className="flex items-center gap-3">
-                    <motion.div
-                        animate={{ scale: [1, 1.2, 1] }}
-                        transition={{ duration: 2, repeat: Infinity }}
-                    >
-                        <FaHeart className="text-pink-600 text-2xl" />
-                    </motion.div>
-                    <span className={`font-bold text-2xl tracking-wide ${theme === 'light' ? 'text-[#4A0E1F]' : 'text-white'}`}
+                {/* Sidebar Header */}
+                <div className="p-6 pb-2">
+                    <h2 className={`text-3xl font-bold mb-6 ${theme === 'light' ? 'text-gray-800' : 'text-white'}`}
                         style={{ fontFamily: "'Playfair Display', serif" }}>
-                        Swarsh
-                    </span>
-                </div>
+                        Messages
+                    </h2>
 
-                <div className="flex items-center gap-4">
-                    <motion.button
-                        whileHover={{ scale: 1.1 }}
-                        whileTap={{ scale: 0.9 }}
-                        className={`p-3 rounded-full ${theme === 'light' ? 'hover:bg-gray-100' : 'hover:bg-white/10'}`}
-                    >
-                        <FaBell className={`text-xl ${theme === 'light' ? 'text-gray-700' : 'text-white'}`} />
-                    </motion.button>
-                    <motion.button
-                        whileHover={{ scale: 1.1 }}
-                        whileTap={{ scale: 0.9 }}
-                        className={`p-3 rounded-full ${theme === 'light' ? 'hover:bg-gray-100' : 'hover:bg-white/10'}`}
-                    >
-                        <BsHeartFill className={`text-xl ${theme === 'light' ? 'text-gray-700' : 'text-white'}`} />
-                    </motion.button>
-                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-pink-400 to-pink-600 flex items-center justify-center cursor-pointer">
-                        <span className="text-white font-bold">S</span>
+                    {/* Search */}
+                    <div className="relative mb-4">
+                        <FaSearch className={`absolute left-4 top-1/2 transform -translate-y-1/2 ${theme === 'light' ? 'text-gray-400' : 'text-white/30'}`} />
+                        <input
+                            type="text"
+                            placeholder="Search soulmates..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className={`w-full pl-12 pr-4 py-3 rounded-2xl outline-none transition-all
+                                ${theme === 'light'
+                                    ? 'bg-gray-100/50 text-gray-800 placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-pink-200'
+                                    : 'bg-white/5 text-white placeholder-white/30 focus:bg-white/10 focus:ring-1 focus:ring-pink-500/30'}`}
+                        />
                     </div>
                 </div>
-            </motion.nav>
 
-            {/* Main Content */}
-            <div className="w-full h-screen pt-20 md:pt-24 pb-16 md:pb-0 flex">
-                {/* Left Sidebar - Matches List */}
-                <motion.div
-                    initial={{ x: -300, opacity: 0 }}
-                    animate={{ x: 0, opacity: 1 }}
-                    transition={{ duration: 0.6 }}
-                    className={`w-full md:w-96 h-full border-r overflow-y-auto
-                        ${theme === 'light' ? 'bg-white/60 border-gray-200' : 'bg-black/40 border-white/10'} backdrop-blur-xl`}
-                >
-                    {/* Sidebar Header */}
-                    <div className="p-6">
-                        <h2 className={`text-2xl font-bold mb-4 ${theme === 'light' ? 'text-gray-800' : 'text-white'}`}
-                            style={{ fontFamily: "'Playfair Display', serif" }}>
-                            Messages
-                        </h2>
-
-                        {/* Search */}
-                        <div className={`relative mb-4`}>
-                            <FaSearch className={`absolute left-4 top-1/2 transform -translate-y-1/2 ${theme === 'light' ? 'text-gray-400' : 'text-gray-500'}`} />
-                            <input
-                                type="text"
-                                placeholder="Search soulmates..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className={`w-full pl-12 pr-4 py-3 rounded-xl outline-none transition-all
-                                    ${theme === 'light'
-                                        ? 'bg-gray-100 text-gray-800 placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-pink-200'
-                                        : 'bg-white/5 text-white placeholder-gray-500 focus:bg-white/10 focus:ring-2 focus:ring-pink-500/30'}`}
-                            />
-                        </div>
-                    </div>
-
-                    {/* Matches List */}
-                    <div className="px-3">
-                        {filteredMatches.map((match, index) => (
-                            <motion.div
-                                key={match.id}
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: index * 0.1 }}
-                                onClick={() => setSelectedMatch(match)}
-                                className={`flex items-center gap-3 p-4 mb-2 rounded-xl cursor-pointer transition-all
-                                    ${selectedMatch?.id === match.id
-                                        ? 'bg-gradient-to-r from-pink-500 to-pink-600 text-white'
-                                        : theme === 'light'
-                                            ? 'hover:bg-pink-50 text-gray-800'
-                                            : 'hover:bg-white/10 text-white'}`}
-                            >
-                                {/* Avatar */}
-                                <div className="relative">
+                {/* Matches List */}
+                <div className="flex-1 overflow-y-auto px-3 pb-20 md:pb-0">
+                    {filteredMatches.map((match, index) => (
+                        <motion.div
+                            key={match.id}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: index * 0.05 }}
+                            onClick={() => setSelectedMatch(match)}
+                            className={`flex items-center gap-4 p-4 mb-2 rounded-2xl cursor-pointer transition-all group
+                                ${selectedMatch?.id === match.id
+                                    ? 'bg-white/10 shadow-lg border border-white/5'
+                                    : 'hover:bg-white/5 border border-transparent'}`}
+                        >
+                            {/* Avatar */}
+                            <div className="relative shrink-0">
+                                <div className={`p-0.5 rounded-full ${selectedMatch?.id === match.id ? 'bg-gradient-to-r from-pink-500 to-purple-500' : 'bg-transparent'}`}>
                                     <img
                                         src={match.avatar}
                                         alt={match.name}
-                                        className="w-14 h-14 rounded-full object-cover"
+                                        className="w-14 h-14 rounded-full object-cover border-2 border-transparent"
                                     />
-                                    {match.online && (
-                                        <div className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
-                                    )}
                                 </div>
-
-                                {/* Info */}
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex justify-between items-start mb-1">
-                                        <h3 className="font-bold truncate">{match.name}</h3>
-                                        <span className={`text-xs ${selectedMatch?.id === match.id ? 'text-white/80' : theme === 'light' ? 'text-gray-500' : 'text-gray-400'}`}>
-                                            {match.time}
-                                        </span>
-                                    </div>
-                                    <div className="flex justify-between items-center">
-                                        <p className={`text-sm truncate ${selectedMatch?.id === match.id ? 'text-white/80' : theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>
-                                            {match.lastMessage}
-                                        </p>
-                                        {match.unread > 0 && selectedMatch?.id !== match.id && (
-                                            <div className="ml-2 w-6 h-6 bg-pink-600 rounded-full flex items-center justify-center">
-                                                <span className="text-white text-xs font-bold">{match.unread}</span>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            </motion.div>
-                        ))}
-
-                        {filteredMatches.length === 0 && (
-                            <div className="text-center py-12">
-                                <BsHeartFill className={`text-6xl mx-auto mb-4 ${theme === 'light' ? 'text-gray-300' : 'text-gray-700'}`} />
-                                <p className={`${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>
-                                    No matches yet
-                                </p>
-                                <p className={`text-sm mt-2 ${theme === 'light' ? 'text-gray-500' : 'text-gray-500'}`}>
-                                    Keep swiping to find your soulmate!
-                                </p>
+                                {match.online && (
+                                    <div className="absolute bottom-1 right-1 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-black"></div>
+                                )}
                             </div>
-                        )}
-                    </div>
-                </motion.div>
 
-                {/* Right Side - Chat Area */}
-                {selectedMatch ? (
-                    <div className="flex-1 flex flex-col h-full">
-                        {/* Chat Header */}
-                        <motion.div
-                            initial={{ y: -50, opacity: 0 }}
-                            animate={{ y: 0, opacity: 1 }}
-                            className={`flex items-center justify-between px-6 py-4 border-b
-                                ${theme === 'light' ? 'bg-white/60 border-gray-200' : 'bg-black/40 border-white/10'} backdrop-blur-xl`}
-                        >
-                            <div className="flex items-center gap-3">
-                                <div className="relative">
-                                    <img
-                                        src={selectedMatch.avatar}
-                                        alt={selectedMatch.name}
-                                        className="w-12 h-12 rounded-full object-cover"
-                                    />
-                                    {selectedMatch.online && (
-                                        <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
-                                    )}
-                                </div>
-                                <div>
-                                    <h3 className={`font-bold ${theme === 'light' ? 'text-gray-800' : 'text-white'}`}>
-                                        {selectedMatch.name}
+                            {/* Info */}
+                            <div className="flex-1 min-w-0">
+                                <div className="flex justify-between items-baseline mb-1">
+                                    <h3 className={`font-semibold text-lg truncate ${theme === 'light' ? 'text-gray-800' : 'text-white group-hover:text-pink-200 transition-colors'}`}>
+                                        {match.name}
                                     </h3>
-                                    <p className={`text-sm ${selectedMatch.online ? 'text-green-500' : theme === 'light' ? 'text-gray-500' : 'text-gray-400'}`}>
-                                        {selectedMatch.online ? 'Online' : 'Offline'}
-                                    </p>
+                                    <span className={`text-xs font-medium ${theme === 'light' ? 'text-gray-400' : 'text-white/30'}`}>
+                                        {/* Simple time logic here or format timestamp */}
+                                        {match.time}
+                                    </span>
                                 </div>
-                            </div>
-
-                            <div className="flex items-center gap-3">
-                                <motion.button
-                                    whileHover={{ scale: 1.1 }}
-                                    whileTap={{ scale: 0.9 }}
-                                    className={`p-3 rounded-full ${theme === 'light' ? 'hover:bg-gray-100' : 'hover:bg-white/10'}`}
-                                >
-                                    <FaPhone className={`${theme === 'light' ? 'text-gray-700' : 'text-white'}`} />
-                                </motion.button>
-                                <motion.button
-                                    whileHover={{ scale: 1.1 }}
-                                    whileTap={{ scale: 0.9 }}
-                                    className={`p-3 rounded-full ${theme === 'light' ? 'hover:bg-gray-100' : 'hover:bg-white/10'}`}
-                                >
-                                    <FaVideo className={`${theme === 'light' ? 'text-gray-700' : 'text-white'}`} />
-                                </motion.button>
-                                <motion.button
-                                    whileHover={{ scale: 1.1 }}
-                                    whileTap={{ scale: 0.9 }}
-                                    className={`p-3 rounded-full ${theme === 'light' ? 'hover:bg-gray-100' : 'hover:bg-white/10'}`}
-                                >
-                                    <FaEllipsisV className={`${theme === 'light' ? 'text-gray-700' : 'text-white'}`} />
-                                </motion.button>
+                                <div className="flex justify-between items-center">
+                                    <p className={`text-sm truncate ${theme === 'light' ? 'text-gray-500' : 'text-white/50'}`}>
+                                        {match.lastMessage}
+                                    </p>
+                                    {match.unread > 0 && (
+                                        <div className="ml-2 w-5 h-5 bg-pink-500 rounded-full flex items-center justify-center shadow-lg shadow-pink-500/30">
+                                            <span className="text-white text-[10px] font-bold">{match.unread}</span>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </motion.div>
+                    ))}
 
-                        {/* Messages Area */}
-                        <div className={`flex-1 overflow-y-auto p-6 space-y-4
-                            ${theme === 'light' ? 'bg-pink-50/30' : 'bg-black/20'}`}
-                        >
-                            {/* Date Divider */}
-                            <div className="flex items-center justify-center my-4">
-                                <span className={`px-4 py-1 rounded-full text-xs ${theme === 'light' ? 'bg-gray-200 text-gray-600' : 'bg-white/10 text-gray-400'}`}>
-                                    Today, 2:14 PM
-                                </span>
+                    {filteredMatches.length === 0 && (
+                        <div className="text-center py-12 px-6">
+                            <div className="w-20 h-20 mx-auto bg-white/5 rounded-full flex items-center justify-center mb-4">
+                                <BsHeartFill className={`text-3xl ${theme === 'light' ? 'text-gray-300' : 'text-white/20'}`} />
                             </div>
-
-                            {/* Sample Messages */}
-                            <motion.div
-                                initial={{ opacity: 0, x: -20 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                className="flex items-start gap-3"
-                            >
-                                <img src={selectedMatch.avatar} alt="" className="w-10 h-10 rounded-full" />
-                                <div>
-                                    <div className={`px-4 py-3 rounded-2xl rounded-tl-none max-w-md
-                                        ${theme === 'light' ? 'bg-white text-gray-800' : 'bg-white/10 text-white'}`}
-                                    >
-                                        Happy Valentine's Day! 💕 Did you get the flowers?
-                                    </div>
-                                    <span className={`text-xs mt-1 ml-2 ${theme === 'light' ? 'text-gray-500' : 'text-gray-400'}`}>
-                                        2:15 PM
-                                    </span>
-                                </div>
-                            </motion.div>
-
-                            <motion.div
-                                initial={{ opacity: 0, x: 20 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                className="flex items-start gap-3 justify-end"
-                            >
-                                <div className="text-right">
-                                    <div className="px-4 py-3 rounded-2xl rounded-tr-none max-w-md bg-gradient-to-r from-pink-500 to-pink-600 text-white inline-block">
-                                        Yes! They are beautiful. You're the best.
-                                    </div>
-                                    <div className="flex items-center justify-end gap-2 mt-1">
-                                        <span className={`text-xs ${theme === 'light' ? 'text-gray-500' : 'text-gray-400'}`}>
-                                            2:16 PM
-                                        </span>
-                                        <span className="text-pink-500">✓✓</span>
-                                    </div>
-                                </div>
-                            </motion.div>
-
-                            <motion.div
-                                initial={{ opacity: 0, x: -20 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                className="flex items-start gap-3"
-                            >
-                                <img src={selectedMatch.avatar} alt="" className="w-10 h-10 rounded-full" />
-                                <div>
-                                    <div className={`px-4 py-3 rounded-2xl rounded-tl-none max-w-md flex items-center gap-2
-                                        ${theme === 'light' ? 'bg-white text-gray-800' : 'bg-white/10 text-white'}`}
-                                    >
-                                        I'm glad you liked them. Any plans for tonight?
-                                        <BsHeartFill className="text-pink-500" />
-                                    </div>
-                                    <span className={`text-xs mt-1 ml-2 ${theme === 'light' ? 'text-gray-500' : 'text-gray-400'}`}>
-                                        2:18 PM
-                                    </span>
-                                </div>
-                            </motion.div>
-
-                            {isTyping && (
-                                <motion.div
-                                    initial={{ opacity: 0, scale: 0.8 }}
-                                    animate={{ opacity: 1, scale: 1 }}
-                                    exit={{ opacity: 0, scale: 0.8 }}
-                                    className="flex items-start gap-3"
-                                >
-                                    <img src={selectedMatch.avatar} alt="" className="w-10 h-10 rounded-full" />
-                                    <div className={`px-5 py-3 rounded-2xl rounded-tl-none
-                                        ${theme === 'light' ? 'bg-white' : 'bg-white/10'}`}
-                                    >
-                                        <div className="flex gap-1">
-                                            <motion.div
-                                                animate={{ y: [0, -5, 0] }}
-                                                transition={{ duration: 0.6, repeat: Infinity }}
-                                                className={`w-2 h-2 rounded-full ${theme === 'light' ? 'bg-gray-400' : 'bg-gray-500'}`}
-                                            />
-                                            <motion.div
-                                                animate={{ y: [0, -5, 0] }}
-                                                transition={{ duration: 0.6, repeat: Infinity, delay: 0.2 }}
-                                                className={`w-2 h-2 rounded-full ${theme === 'light' ? 'bg-gray-400' : 'bg-gray-500'}`}
-                                            />
-                                            <motion.div
-                                                animate={{ y: [0, -5, 0] }}
-                                                transition={{ duration: 0.6, repeat: Infinity, delay: 0.4 }}
-                                                className={`w-2 h-2 rounded-full ${theme === 'light' ? 'bg-gray-400' : 'bg-gray-500'}`}
-                                            />
-                                        </div>
-                                    </div>
-                                </motion.div>
-                            )}
-
-                            <div ref={messagesEndRef} />
-                        </div>
-
-                        {/* Message Input */}
-                        <div className={`p-4 border-t ${theme === 'light' ? 'bg-white/60 border-gray-200' : 'bg-black/40 border-white/10'} backdrop-blur-xl`}>
-                            <div className="flex items-center gap-3">
-                                <motion.button
-                                    whileHover={{ scale: 1.1 }}
-                                    whileTap={{ scale: 0.9 }}
-                                    className={`p-3 rounded-full ${theme === 'light' ? 'hover:bg-gray-100' : 'hover:bg-white/10'}`}
-                                >
-                                    <FaImage className={`text-xl ${theme === 'light' ? 'text-gray-500' : 'text-gray-400'}`} />
-                                </motion.button>
-                                <motion.button
-                                    whileHover={{ scale: 1.1 }}
-                                    whileTap={{ scale: 0.9 }}
-                                    className={`p-3 rounded-full ${theme === 'light' ? 'hover:bg-gray-100' : 'hover:bg-white/10'}`}
-                                >
-                                    <FaSmile className={`text-xl ${theme === 'light' ? 'text-gray-500' : 'text-gray-400'}`} />
-                                </motion.button>
-                                <input
-                                    type="text"
-                                    placeholder="Type a romantic message..."
-                                    value={newMessage}
-                                    onChange={(e) => setNewMessage(e.target.value)}
-                                    onKeyPress={handleKeyPress}
-                                    className={`flex-1 px-6 py-3 rounded-full outline-none transition-all
-                                        ${theme === 'light'
-                                            ? 'bg-gray-100 text-gray-800 placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-pink-200'
-                                            : 'bg-white/5 text-white placeholder-gray-500 focus:bg-white/10 focus:ring-2 focus:ring-pink-500/30'}`}
-                                />
-                                <motion.button
-                                    whileHover={{ scale: 1.05 }}
-                                    whileTap={{ scale: 0.95 }}
-                                    onClick={sendMessage}
-                                    className="p-4 rounded-full bg-gradient-to-r from-pink-500 to-pink-600 text-white shadow-lg shadow-pink-500/40"
-                                >
-                                    <FaPaperPlane />
-                                </motion.button>
-                            </div>
-                        </div>
-                    </div>
-                ) : (
-                    <div className="flex-1 flex items-center justify-center">
-                        <div className="text-center">
-                            <BsHeartFill className={`text-8xl mx-auto mb-6 ${theme === 'light' ? 'text-gray-300' : 'text-gray-700'}`} />
-                            <h3 className={`text-2xl font-bold mb-2 ${theme === 'light' ? 'text-gray-800' : 'text-white'}`}>
-                                Select a conversation
-                            </h3>
-                            <p className={`${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>
-                                Choose a match to start messaging
+                            <p className={`font-medium ${theme === 'light' ? 'text-gray-600' : 'text-white/60'}`}>
+                                No matches found
+                            </p>
+                            <p className="text-sm text-white/30 mt-1">
+                                Keep exploring to find your soulmate!
                             </p>
                         </div>
-                    </div>
-                )}
-            </div>
+                    )}
+                </div>
+            </motion.div>
 
-            {/* Responsive Navigation */}
-            <Navigation theme={theme} currentPage="soulmate" />
+            {/* Right Side - Chat Area */}
+            {selectedMatch ? (
+                <div className={`flex-1 flex flex-col h-full absolute md:relative inset-0 z-20 md:z-auto bg-black // Fix z-index for mobile
+                     ${theme === 'light' ? 'bg-white/90' : 'bg-[#0f0205] md:bg-transparent'}`}>
+
+                    {/* Chat Header */}
+                    <div className={`flex items-center justify-between px-6 py-4 border-b
+                        ${theme === 'light' ? 'bg-white/80 border-gray-200' : 'bg-black/20 border-white/5'} backdrop-blur-md`}>
+
+                        <div className="flex items-center gap-4">
+                            {/* Back Button (Mobile) */}
+                            <button
+                                onClick={() => setSelectedMatch(null)}
+                                className="md:hidden p-2 -ml-2 text-white/70 hover:text-white"
+                            >
+                                <FaArrowLeft />
+                            </button>
+
+                            <div className="relative">
+                                <img
+                                    src={selectedMatch.avatar}
+                                    alt={selectedMatch.name}
+                                    className="w-10 h-10 md:w-12 md:h-12 rounded-full object-cover ring-2 ring-white/10"
+                                />
+                                {selectedMatch.online && (
+                                    <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-black"></div>
+                                )}
+                            </div>
+                            <div>
+                                <h3 className={`font-bold text-lg ${theme === 'light' ? 'text-gray-800' : 'text-white'}`}>
+                                    {selectedMatch.name}
+                                </h3>
+                                <p className={`text-xs font-medium flex items-center gap-1 ${selectedMatch.online
+                                    ? 'text-green-400'
+                                    : theme === 'light' ? 'text-gray-500' : 'text-white/40'
+                                    }`}>
+                                    {isTyping ? (
+                                        <span className="text-pink-400 animate-pulse">typing...</span>
+                                    ) : (
+                                        selectedMatch.online ? 'Online' : 'Offline'
+                                    )}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                            <button className={`p-3 rounded-full transition-colors ${theme === 'light' ? 'hover:bg-gray-100 text-gray-600' : 'hover:bg-white/10 text-white/70 hover:text-white'}`}>
+                                <FaPhone />
+                            </button>
+                            <button className={`p-3 rounded-full transition-colors ${theme === 'light' ? 'hover:bg-gray-100 text-gray-600' : 'hover:bg-white/10 text-white/70 hover:text-white'}`}>
+                                <FaVideo />
+                            </button>
+                            <button className={`p-3 rounded-full transition-colors ${theme === 'light' ? 'hover:bg-gray-100 text-gray-600' : 'hover:bg-white/10 text-white/70 hover:text-white'}`}>
+                                <FaEllipsisV />
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Messages Area */}
+                    <div className={`flex-1 overflow-y-auto p-4 md:p-8 space-y-6 scrollbar-hide`}>
+                        {messages.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center h-full text-center opacity-50">
+                                <div className="w-24 h-24 bg-white/5 rounded-full flex items-center justify-center mb-6">
+                                    <FaHeart className="text-4xl text-pink-500/50" />
+                                </div>
+                                <h3 className="text-xl font-bold text-white mb-2">It's a Match!</h3>
+                                <p className="text-white/60 max-w-xs">
+                                    You and {selectedMatch.name} liked each other. <br />
+                                    Don't be shy, say hello! 👋
+                                </p>
+                            </div>
+                        ) : (
+                            messages.map((msg, index) => {
+                                const isMe = msg.senderId === undefined ? true : (msg.senderId._id ? msg.senderId._id !== selectedMatch.userId : msg.senderId !== selectedMatch.userId);
+                                // The logic above is tricky because msg.senderId might be populated or not depending on backend.
+                                // Let's check api response structure. GET /api/message/conversation returns populated senderId.
+                                // If senderId._id === selectedMatch.userId then it is THEM.
+                                // Wait, `api/message` POST returns populated senderId. 
+                                // `fetchMessages` returns populated.
+                                // Let's simplify:
+                                // Our ID is difficult to get without context or assumption.
+                                // If `senderId._id` equals `selectedMatch.userId`, it's THEM. Otherwise ME.
+
+                                const isSenderMatch = (msg.senderId?._id || msg.senderId) === selectedMatch.userId;
+
+                                return (
+                                    <motion.div
+                                        key={msg._id || index}
+                                        initial={{ opacity: 0, y: 10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        className={`flex items-end gap-3 ${!isSenderMatch ? 'justify-end' : 'justify-start'}`}
+                                    >
+                                        {isSenderMatch && (
+                                            <img src={selectedMatch.avatar} alt="" className="w-8 h-8 rounded-full mb-1" />
+                                        )}
+
+                                        <div className={`max-w-[80%] md:max-w-[60%] space-y-1 ${!isSenderMatch ? 'items-end flex flex-col' : 'items-start flex flex-col'}`}>
+                                            <div className={`px-5 py-3 rounded-2xl text-[15px] leading-relaxed shadow-lg relative overflow-hidden
+                                                ${!isSenderMatch
+                                                    ? 'bg-gradient-to-br from-pink to-pink-2 text-white rounded-tr-none'
+                                                    : theme === 'light'
+                                                        ? 'bg-white text-burgundy rounded-tl-none border border-pink-100'
+                                                        : 'bg-white/10 text-white rounded-tl-none border border-white/5'}`}
+                                            >
+                                                {/* Wavy Background (SVG) for sender */}
+                                                {!isSenderMatch && (
+                                                    <svg className="absolute inset-0 w-full h-full opacity-10 pointer-events-none" xmlns="http://www.w3.org/2000/svg">
+                                                        <defs>
+                                                            <pattern id="wavy" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse">
+                                                                <path d="M0 10 Q 5 5, 10 10 T 20 10" fill="none" stroke="white" strokeWidth="1" />
+                                                            </pattern>
+                                                        </defs>
+                                                        <rect width="100%" height="100%" fill="url(#wavy)" />
+                                                    </svg>
+                                                )}
+                                                <span className="relative z-10">{msg.content}</span>
+                                            </div>
+                                            <span className={`text-[10px] px-1 ${theme === 'light' ? 'text-gray-400' : 'text-white/30'}`}>
+                                                {/* Format time properly */}
+                                                {new Date(msg.timestamp || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            </span>
+                                        </div>
+                                    </motion.div>
+                                );
+                            })
+                        )}
+                        <div ref={messagesEndRef} />
+                    </div>
+
+                    {/* Message Input */}
+                    <div className="p-4 md:p-6 pb-24 md:pb-6">
+                        <div className={`flex items-center gap-3 p-2 pr-2 rounded-full border transition-all
+                            ${theme === 'light'
+                                ? 'bg-white border-gray-200 focus-within:ring-2 focus-within:ring-pink-100'
+                                : 'bg-white/5 border-white/10 focus-within:bg-white/10 focus-within:border-white/20'}`}>
+
+                            <button className={`p-3 rounded-full transition-colors ${theme === 'light' ? 'text-gray-400 hover:text-pink-500' : 'text-white/40 hover:text-pink-400'}`}>
+                                <FaImage className="text-xl" />
+                            </button>
+
+                            <input
+                                type="text"
+                                placeholder="Type a message..."
+                                value={newMessage}
+                                onChange={handleInput}
+                                onKeyPress={handleKeyPress}
+                                className={`flex-1 bg-transparent outline-none px-2 ${theme === 'light' ? 'text-gray-800 placeholder-gray-400' : 'text-white placeholder-white/30'}`}
+                            />
+
+                            <button className={`p-3 rounded-full transition-colors ${theme === 'light' ? 'text-gray-400 hover:text-pink-500' : 'text-white/40 hover:text-pink-400'}`}>
+                                <FaSmile className="text-xl" />
+                            </button>
+
+                            <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={sendMessage}
+                                disabled={!newMessage.trim()}
+                                className={`p-3 rounded-full bg-gradient-to-r from-pink to-heart-red text-white shadow-lg shadow-pink/20 
+                                    ${!newMessage.trim() ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-pink/40'}`}
+                            >
+                                <FaPaperPlane />
+                            </motion.button>
+                        </div>
+                    </div>
+                </div>
+            ) : (
+                <div className="hidden md:flex flex-1 items-center justify-center flex-col text-center p-8 opacity-50">
+                    <div className="w-32 h-32 bg-gradient-to-br from-pink-500/20 to-purple-500/20 rounded-full flex items-center justify-center mb-8 blur-sm">
+                        <BsHeartFill className="text-6xl text-pink-500" />
+                    </div>
+                    <h2 className="text-3xl font-bold text-white mb-4" style={{ fontFamily: "'Playfair Display', serif" }}>
+                        Your Soulmate Awaits
+                    </h2>
+                    <p className="text-white/60 max-w-md text-lg font-light">
+                        Select a conversation from the left to start chatting. <br />
+                        Connect deeply, reply authentically.
+                    </p>
+                </div>
+            )}
         </div>
     );
 };

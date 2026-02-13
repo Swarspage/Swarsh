@@ -15,14 +15,24 @@ const SignupAndLogin = () => {
 
     useEffect(() => {
         setActiveTab(location.pathname === '/login' ? 'login' : 'signup');
-    }, [location.pathname]);
+
+        // Extract invite token from URL
+        const params = new URLSearchParams(location.search);
+        const token = params.get('token');
+        if (token) {
+            setFormData(prev => ({ ...prev, inviteToken: token }));
+            setActiveTab('signup');
+        }
+    }, [location.pathname, location.search]);
 
     // Form State
     const [formData, setFormData] = useState({
         name: '',
         email: '',
         password: '',
-        confirmPassword: ''
+        password: '',
+        confirmPassword: '',
+        inviteToken: ''
     });
     const [errors, setErrors] = useState({});
     const [showPassword, setShowPassword] = useState(false);
@@ -86,7 +96,8 @@ const SignupAndLogin = () => {
                     email: formData.email,
                     password: formData.password,
                     name: formData.name,
-                    age: 25
+                    age: 25,
+                    inviteToken: formData.inviteToken
                 });
                 console.log('Signup successful:', response.data);
                 navigate('/onboarding');
@@ -219,6 +230,23 @@ const SignupAndLogin = () => {
                                         </div>
                                     )}
 
+                                    {activeTab === 'signup' && (
+                                        <div>
+                                            <label className={labelClass}>Invite Token (Required)</label>
+                                            <input
+                                                type="text"
+                                                name="inviteToken"
+                                                value={formData.inviteToken}
+                                                onChange={handleChange}
+                                                placeholder="Enter invite code"
+                                                className={inputClass}
+                                            />
+                                            <p className="text-xs text-gray-400 mt-1">
+                                                Only the first user can skip this. All others need an invite.
+                                            </p>
+                                        </div>
+                                    )}
+
                                     <div>
                                         <label className={labelClass}>Email</label>
                                         <input
@@ -307,8 +335,8 @@ const SignupAndLogin = () => {
                     <FaHeart className="absolute -top-4 -left-4 text-pink-vibrant/10 text-6xl rotate-[-20deg]" />
                     <FaHeart className="absolute -bottom-4 -right-4 text-pink-vibrant/10 text-6xl rotate-[-20deg]" />
                 </motion.div>
-            </div>
-        </div>
+            </div >
+        </div >
     );
 };
 

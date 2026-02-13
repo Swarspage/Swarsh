@@ -8,7 +8,7 @@ import api from '../api/axios';
 const Onboarding = () => {
     const navigate = useNavigate();
     const [currentStep, setCurrentStep] = useState(1);
-    const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'light');
+    const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'dark');
 
     // Form state
     const [formData, setFormData] = useState({
@@ -154,8 +154,8 @@ const Onboarding = () => {
     return (
         <div className={`min-h-screen w-full transition-all duration-500 relative overflow-hidden flex flex-col
             ${theme === 'light'
-                ? 'bg-gradient-to-br from-pink-200 via-pink-50 to-white'
-                : 'bg-gradient-to-br from-[#4A0E1F] via-[#2A0E1A] to-[#1A0510]'}`}
+                ? 'bg-gradient-to-br from-blush via-white to-pink-100'
+                : 'bg-gradient-to-br from-burgundy via-burgundy-dark to-black'}`}
         >
             {/* Animated Background Gradients */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -213,7 +213,7 @@ const Onboarding = () => {
                     >
                         <BsHeartFill
                             size={heart.size}
-                            className={theme === 'light' ? 'text-pink-400' : 'text-pink-600'}
+                            className={theme === 'light' ? 'text-pink-400' : 'text-heart-red'}
                             style={{ filter: 'blur(1px)' }}
                         />
                     </motion.div>
@@ -584,7 +584,7 @@ const Onboarding = () => {
                                         disabled={uploadedPhotosPreview.length < 3}
                                         className={`px-8 py-3 rounded-full font-bold shadow-lg transition-all
                                             ${uploadedPhotosPreview.length >= 3
-                                                ? 'bg-gradient-to-r from-pink-500 to-pink-600 text-white hover:shadow-xl cursor-pointer'
+                                                ? 'bg-gradient-to-r from-pink to-pink-2 text-white hover:shadow-xl cursor-pointer'
                                                 : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
                                     >
                                         Next
@@ -723,7 +723,7 @@ const Onboarding = () => {
                                     whileHover={{ scale: 1.05 }}
                                     whileTap={{ scale: 0.95 }}
                                     onClick={handleComplete}
-                                    className="w-full bg-gradient-to-r from-pink-500 to-pink-600 text-white py-4 rounded-full font-bold text-lg shadow-xl hover:shadow-2xl transition-all mb-4"
+                                    className="w-full bg-gradient-to-r from-pink to-pink-2 text-white py-4 rounded-full font-bold text-lg shadow-xl hover:shadow-2xl transition-all mb-4"
                                 >
                                     Complete Setup 🎉
                                 </motion.button>

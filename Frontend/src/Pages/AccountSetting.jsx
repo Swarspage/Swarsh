@@ -1,17 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useOutletContext } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
     FaBell, FaEnvelope, FaHeart, FaMoon, FaSun, FaLock,
     FaSignOutAlt, FaChevronRight, FaUser, FaShieldAlt
 } from 'react-icons/fa';
 import { BsHeartFill } from 'react-icons/bs';
-import Navigation from '../components/Navigation';
 import api from '../api/axios';
+import { FaCopy } from 'react-icons/fa';
 
 const AccountSetting = () => {
     const navigate = useNavigate();
-    const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'light');
+    const { theme, setTheme } = useOutletContext(); // Use global theme context
 
     // Settings state
     const [settings, setSettings] = useState({
@@ -22,15 +22,43 @@ const AccountSetting = () => {
         }
     });
 
-    // Theme sync
+    // Partner/Invite State
+    const [inviteToken, setInviteToken] = useState(null);
+    const [partnerName, setPartnerName] = useState(null);
+    const [user, setUser] = useState(null);
+
     useEffect(() => {
-        if (theme === 'dark') {
-            document.documentElement.classList.add('dark');
-        } else {
-            document.documentElement.classList.remove('dark');
+        const fetchUser = async () => {
+            try {
+                const res = await api.get('/user/profile');
+                setUser(res.data.user);
+                if (res.data.user.pairedWith) {
+                    setPartnerName(res.data.user.pairedWith.name);
+                } else {
+                    // Generate token if not paired
+                    generateInvite();
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        };
+        fetchUser();
+    }, []);
+
+    const generateInvite = async () => {
+        try {
+            const res = await api.post('/invite/generate');
+            setInviteToken(res.data.token);
+        } catch (err) {
+            console.error(err);
         }
-        localStorage.setItem('theme', theme);
-    }, [theme]);
+    };
+
+    const copyInvite = () => {
+        const url = `${window.location.origin}/signup?token=${inviteToken}`;
+        navigator.clipboard.writeText(url);
+        alert('Invite link copied!');
+    };
 
     // Toggle theme
     const toggleTheme = () => {
@@ -61,78 +89,15 @@ const AccountSetting = () => {
     };
 
     return (
-        <div className={`min-h-screen w-full transition-all duration-500 relative overflow-hidden flex flex-col
-            ${theme === 'light'
-                ? 'bg-gradient-to-br from-pink-50 via-white to-pink-50'
-                : 'bg-gradient-to-br from-[#1A0510] via-[#0A0005] to-[#1A0510]'}`}
-        >
-            {/* Animated Background Gradients */}
-            <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                <motion.div
-                    animate={{
-                        scale: [1, 1.2, 1],
-                        opacity: [0.3, 0.5, 0.3],
-                    }}
-                    transition={{
-                        duration: 8,
-                        repeat: Infinity,
-                        ease: "easeInOut"
-                    }}
-                    className={`absolute top-1/4 -left-20 w-96 h-96 rounded-full blur-3xl
-                        ${theme === 'light' ? 'bg-pink-300/30' : 'bg-pink-600/20'}`}
-                />
-                <motion.div
-                    animate={{
-                        scale: [1, 1.3, 1],
-                        opacity: [0.2, 0.4, 0.2],
-                    }}
-                    transition={{
-                        duration: 10,
-                        repeat: Infinity,
-                        ease: "easeInOut",
-                        delay: 1
-                    }}
-                    className={`absolute bottom-1/4 -right-20 w-96 h-96 rounded-full blur-3xl
-                        ${theme === 'light' ? 'bg-pink-200/30' : 'bg-pink-600/15'}`}
-                />
-            </div>
-
-            {/* Header */}
-            <motion.nav
-                initial={{ y: -100, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ duration: 0.6 }}
-                className={`relative z-50 px-6 md:px-12 h-20 flex items-center justify-between`}
-            >
-                <div className="flex items-center gap-3">
-                    <motion.div
-                        animate={{ scale: [1, 1.2, 1] }}
-                        transition={{ duration: 2, repeat: Infinity }}
-                    >
-                        <FaHeart className="text-pink-600 text-2xl" />
-                    </motion.div>
-                    <span className={`font-bold text-2xl tracking-wide ${theme === 'light' ? 'text-[#4A0E1F]' : 'text-white'}`}
-                        style={{ fontFamily: "'Playfair Display', serif" }}>
-                        Swarsh
-                    </span>
-                </div>
-
-                <motion.button
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
-                    className={`p-3 rounded-full ${theme === 'light' ? 'hover:bg-pink-100' : 'hover:bg-white/10'}`}
-                >
-                    <FaBell className={`text-xl ${theme === 'light' ? 'text-gray-700' : 'text-white'}`} />
-                </motion.button>
-            </motion.nav>
+        <div className={`min-h-screen w-full transition-all duration-500 relative overflow-hidden flex flex-col pb-20`}>
 
             {/* Main Content */}
-            <div className="relative z-10 flex-grow flex items-start justify-center px-4 pb-24 md:pb-8 md:pt-8 overflow-y-auto">
+            <div className="relative z-10 flex-grow flex items-start justify-center px-4 pb-8 md:pt-8 overflow-y-auto">
                 <motion.div
                     initial={{ scale: 0.95, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
                     transition={{ duration: 0.5 }}
-                    className="w-full max-w-2xl"
+                    className="w-full max-w-2xl pt-20"
                 >
                     {/* Title */}
                     <div className="text-center mb-8">
@@ -141,9 +106,9 @@ const AccountSetting = () => {
                             animate={{ scale: 1 }}
                             transition={{ delay: 0.2, type: "spring" }}
                             className={`w-20 h-20 rounded-full mx-auto mb-4 flex items-center justify-center
-                                ${theme === 'light' ? 'bg-pink-100' : 'bg-pink-900/30'}`}
+                                ${theme === 'light' ? 'bg-pink-100' : 'bg-burgundy'}`}
                         >
-                            <FaUser className="text-pink-600 text-3xl" />
+                            <FaUser className="text-pink text-3xl" />
                         </motion.div>
                         <h1 className={`text-3xl md:text-4xl font-bold mb-2 ${theme === 'light' ? 'text-gray-800' : 'text-white'}`}
                             style={{ fontFamily: "'Playfair Display', serif" }}>
@@ -154,6 +119,57 @@ const AccountSetting = () => {
                         </p>
                     </div>
 
+                    {/* Invite / Partner Section */}
+                    <div className="mb-8">
+                        <motion.div
+                            initial={{ y: 20, opacity: 0 }}
+                            animate={{ y: 0, opacity: 1 }}
+                            className={`rounded-2xl p-6 backdrop-blur-xl border relative overflow-hidden
+                                ${theme === 'light' ? 'bg-gradient-to-br from-pink-50 to-white border-pink-100' : 'bg-gradient-to-br from-burgundy to-black border-white/10'}`}
+                        >
+                            <div className="relative z-10">
+                                <h2 className={`text-xl font-bold mb-2 flex items-center gap-2 ${theme === 'light' ? 'text-burgundy' : 'text-pink'}`}>
+                                    <FaHeart className="animate-pulse" /> My Soulmate
+                                </h2>
+
+                                {partnerName ? (
+                                    <div className="text-center py-4">
+                                        <p className={`text-lg mb-2 ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'}`}>
+                                            You are happily paired with
+                                        </p>
+                                        <h3 className="text-3xl font-serif font-bold text-pink-vibrant">
+                                            {partnerName}
+                                        </h3>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-4">
+                                        <p className={`text-sm ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>
+                                            You are not paired yet. Send this invite link to your special someone to get started.
+                                            Once they accept, it's just the two of you! 💕
+                                        </p>
+
+                                        {inviteToken ? (
+                                            <div className="flex gap-2">
+                                                <div className={`flex-1 p-3 rounded-xl font-mono text-center tracking-widest border border-dashed
+                                                    ${theme === 'light' ? 'bg-white border-pink-200 text-burgundy' : 'bg-black/30 border-pink/30 text-white'}`}>
+                                                    {inviteToken}
+                                                </div>
+                                                <button
+                                                    onClick={copyInvite}
+                                                    className="bg-pink text-white px-6 rounded-xl font-bold shadow-lg hover:shadow-pink/30 transition-all flex items-center gap-2"
+                                                >
+                                                    <FaCopy /> Copy Link
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <div className="text-center text-sm text-gray-500">Loading invite...</div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        </motion.div>
+                    </div>
+
                     {/* Settings Container */}
                     <div className="space-y-6">
                         {/* Notifications Section */}
@@ -161,11 +177,11 @@ const AccountSetting = () => {
                             initial={{ y: 20, opacity: 0 }}
                             animate={{ y: 0, opacity: 1 }}
                             transition={{ delay: 0.3 }}
-                            className={`rounded-2xl p-6 backdrop-blur-xl
-                                ${theme === 'light' ? 'bg-white/80' : 'bg-black/40'}`}
+                            className={`rounded-2xl p-6 backdrop-blur-xl border
+                                ${theme === 'light' ? 'bg-white/80 border-white/50' : 'bg-black/40 border-white/10'}`}
                         >
                             <div className="flex items-center gap-3 mb-4">
-                                <FaBell className="text-pink-600 text-xl" />
+                                <FaBell className="text-pink text-xl" />
                                 <h2 className={`text-xl font-bold ${theme === 'light' ? 'text-gray-800' : 'text-white'}`}>
                                     Notifications
                                 </h2>
@@ -206,11 +222,11 @@ const AccountSetting = () => {
                             initial={{ y: 20, opacity: 0 }}
                             animate={{ y: 0, opacity: 1 }}
                             transition={{ delay: 0.4 }}
-                            className={`rounded-2xl p-6 backdrop-blur-xl
-                                ${theme === 'light' ? 'bg-white/80' : 'bg-black/40'}`}
+                            className={`rounded-2xl p-6 backdrop-blur-xl border
+                                ${theme === 'light' ? 'bg-white/80 border-white/50' : 'bg-black/40 border-white/10'}`}
                         >
                             <div className="flex items-center gap-3 mb-4">
-                                <BsHeartFill className="text-pink-600 text-xl" />
+                                <BsHeartFill className="text-pink text-xl" />
                                 <h2 className={`text-xl font-bold ${theme === 'light' ? 'text-gray-800' : 'text-white'}`}>
                                     Appearance
                                 </h2>
@@ -232,11 +248,11 @@ const AccountSetting = () => {
                             initial={{ y: 20, opacity: 0 }}
                             animate={{ y: 0, opacity: 1 }}
                             transition={{ delay: 0.5 }}
-                            className={`rounded-2xl p-6 backdrop-blur-xl
-                                ${theme === 'light' ? 'bg-white/80' : 'bg-black/40'}`}
+                            className={`rounded-2xl p-6 backdrop-blur-xl border
+                                ${theme === 'light' ? 'bg-white/80 border-white/50' : 'bg-black/40 border-white/10'}`}
                         >
                             <div className="flex items-center gap-3 mb-4">
-                                <FaShieldAlt className="text-pink-600 text-xl" />
+                                <FaShieldAlt className="text-pink text-xl" />
                                 <h2 className={`text-xl font-bold ${theme === 'light' ? 'text-gray-800' : 'text-white'}`}>
                                     Account
                                 </h2>
@@ -291,9 +307,6 @@ const AccountSetting = () => {
                     </div>
                 </motion.div>
             </div>
-
-            {/* Responsive Navigation */}
-            <Navigation theme={theme} currentPage="settings" />
         </div>
     );
 };
@@ -303,7 +316,7 @@ const ToggleRow = ({ icon: Icon, title, description, checked, onChange, theme })
     <div className={`flex items-center justify-between p-4 rounded-xl transition-all
         ${theme === 'light' ? 'hover:bg-gray-50' : 'hover:bg-white/5'}`}>
         <div className="flex items-start gap-3 flex-1">
-            {Icon && <Icon className="text-pink-600 text-xl mt-1" />}
+            {Icon && <Icon className="text-pink text-xl mt-1" />}
             <div>
                 <h3 className={`font-semibold ${theme === 'light' ? 'text-gray-800' : 'text-white'}`}>
                     {title}
@@ -319,8 +332,8 @@ const ToggleRow = ({ icon: Icon, title, description, checked, onChange, theme })
             whileTap={{ scale: 0.95 }}
             onClick={onChange}
             className={`relative w-14 h-8 rounded-full transition-all ${checked
-                    ? 'bg-gradient-to-r from-pink-500 to-pink-600'
-                    : theme === 'light' ? 'bg-gray-300' : 'bg-gray-700'
+                ? 'bg-gradient-to-r from-pink to-pink-2'
+                : theme === 'light' ? 'bg-gray-300' : 'bg-burgundy'
                 }`}
         >
             <motion.div

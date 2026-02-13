@@ -40,17 +40,17 @@ const Navigation = ({ theme, currentPage }) => {
                             className="flex flex-col items-center gap-1"
                         >
                             <div className={`p-3 rounded-full ${isActive
-                                    ? 'bg-gradient-to-br from-pink-500 to-pink-600'
-                                    : theme === 'light' ? 'bg-gray-100' : 'bg-white/10'
+                                ? 'bg-gradient-to-br from-pink to-heart-red'
+                                : theme === 'light' ? 'bg-pink-100' : 'bg-white/10'
                                 }`}>
                                 <Icon className={`text-xl ${isActive
-                                        ? 'text-white'
-                                        : theme === 'light' ? 'text-gray-500' : 'text-gray-400'
+                                    ? 'text-white'
+                                    : theme === 'light' ? 'text-burgundy' : 'text-gray-400'
                                     }`} />
                             </div>
                             <span className={`text-xs font-medium ${isActive
-                                    ? 'text-pink-600 font-bold'
-                                    : theme === 'light' ? 'text-gray-500' : 'text-gray-400'
+                                ? 'text-heart-red font-bold'
+                                : theme === 'light' ? 'text-burgundy' : 'text-gray-400'
                                 }`}>
                                 {item.label}
                             </span>

@@ -15,6 +15,8 @@ const userSchema = new mongoose.Schema({
     uploadedPhotos: [String],
     bio: String,
     inviteCode: { type: String, sparse: true }, // Sparse allows multiple null values
+    pairedWith: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    pairToken: { type: String, unique: true, sparse: true },
     settings: {
         notifications: {
             matches: { type: Boolean, default: true },

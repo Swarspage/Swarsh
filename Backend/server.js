@@ -67,20 +67,56 @@ mongoose.connect(process.env.MONGO_URI)
 // Signup
 app.post('/api/auth/signup', async (req, res) => {
     try {
-        const { username, email, password, name, age } = req.body;
+        const { username, email, password, name, age, inviteToken } = req.body;
 
         // Check if exists
         const exists = await User.findOne({ $or: [{ email }, { username }] });
         if (exists) return res.status(400).json({ error: 'User already exists' });
+
+        // First user check (to bootstrap the system)
+        const userCount = await User.countDocuments();
+        let pairedWithId = null;
+
+        if (userCount > 0) {
+            // If not the first user, require invite token
+            if (!inviteToken) {
+                return res.status(400).json({ error: 'Invite token required for registration' });
+            }
+
+            // Find inviter
+            const inviter = await User.findOne({ pairToken: inviteToken });
+            if (!inviter) {
+                return res.status(400).json({ error: 'Invalid invite token' });
+            }
+
+            if (inviter.pairedWith) {
+                return res.status(400).json({ error: 'Inviter is already paired' });
+            }
+
+            pairedWithId = inviter._id;
+        }
 
         // Hash password
         const hashedPassword = await bcrypt.hash(password, 10);
 
         // Create user
         const user = new User({
-            username, email, password: hashedPassword, name, age
+            username,
+            email,
+            password: hashedPassword,
+            name,
+            age,
+            pairedWith: pairedWithId
         });
         await user.save();
+
+        // If paired, update inviter
+        if (pairedWithId) {
+            await User.findByIdAndUpdate(pairedWithId, {
+                pairedWith: user._id,
+                $unset: { pairToken: "" } // Clear token after use
+            });
+        }
 
         // Set session
         req.session.userId = user._id;
@@ -118,6 +154,51 @@ app.post('/api/auth/logout', (req, res) => {
     res.json({ message: 'Logged out' });
 });
 
+// ========================
+// INVITE ROUTES
+// ========================
+
+// Generate Invite Token
+app.post('/api/invite/generate', async (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Not logged in' });
+
+    try {
+        const user = await User.findById(req.session.userId);
+        if (user.pairedWith) {
+            return res.status(400).json({ error: 'You are already paired!' });
+        }
+
+        // Generate or return existing token
+        let token = user.pairToken;
+        if (!token) {
+            // Simple random token
+            token = require('crypto').randomBytes(4).toString('hex').toUpperCase();
+            user.pairToken = token;
+            await user.save();
+        }
+
+        res.json({ token });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Validate Invite Token
+app.get('/api/invite/validate/:token', async (req, res) => {
+    try {
+        const { token } = req.params;
+        const inviter = await User.findOne({ pairToken: token }).select('name profilePicture');
+
+        if (!inviter) {
+            return res.status(404).json({ valid: false, error: 'Invalid invite code' });
+        }
+
+        res.json({ valid: true, inviter });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Get current user
 app.get('/api/auth/me', async (req, res) => {
     if (!req.session.userId) return res.status(401).json({ error: 'Not logged in' });
@@ -134,7 +215,7 @@ app.get('/api/auth/me', async (req, res) => {
 app.get('/api/user/profile', async (req, res) => {
     if (!req.session.userId) return res.status(401).json({ error: 'Not logged in' });
 
-    const user = await User.findById(req.session.userId).select('-password');
+    const user = await User.findById(req.session.userId).select('-password').populate('pairedWith', 'name profilePicture');
     res.json({ user });
 });
 
@@ -267,6 +348,49 @@ app.get('/api/swipe/next', async (req, res) => {
     res.json({ photo: randomPhoto, totalPhotos: allPhotos.length });
 });
 
+// Get specific user's photo (for Couple Mode)
+app.get('/api/users/:userId/photo', async (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Not logged in' });
+
+    try {
+        const { userId } = req.params;
+        const user = await User.findById(userId);
+
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        // Collect all available photos
+        let photos = [];
+        if (user.uploadedPhotos && user.uploadedPhotos.length > 0) {
+            photos = [...user.uploadedPhotos];
+        }
+        if (user.profilePicture) {
+            photos.push(user.profilePicture);
+        }
+
+        if (photos.length === 0) {
+            return res.status(404).json({ error: 'No photos available' });
+        }
+
+        // Pick a random one for "infinite" feel
+        const randomUrl = photos[Math.floor(Math.random() * photos.length)];
+
+        // Return in the format expected by frontend
+        const photoData = {
+            url: randomUrl,
+            ownerId: user._id,
+            ownerName: user.name
+        };
+
+        res.json({ photo: photoData, totalPhotos: photos.length });
+
+    } catch (error) {
+        console.error('Error fetching partner photo:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 
 // Record swipe
 app.post('/api/swipe', async (req, res) => {
@@ -334,16 +458,52 @@ app.post('/api/swipe', async (req, res) => {
 app.get('/api/match', async (req, res) => {
     if (!req.session.userId) return res.status(401).json({ error: 'Not logged in' });
 
-    const matches = await Match.find({
-        $or: [
-            { user1Id: req.session.userId },
-            { user2Id: req.session.userId }
-        ]
-    })
-        .populate('user1Id', 'name profilePicture uploadedPhotos')
-        .populate('user2Id', 'name profilePicture uploadedPhotos');
+    try {
+        // 1. Get real matches from DB
+        let matches = await Match.find({
+            $or: [
+                { user1Id: req.session.userId },
+                { user2Id: req.session.userId }
+            ]
+        })
+            .populate('user1Id', 'name profilePicture uploadedPhotos')
+            .populate('user2Id', 'name profilePicture uploadedPhotos');
 
-    res.json({ matches, currentUserId: req.session.userId });
+        // 2. Check for "Paired" partner
+        const currentUser = await User.findById(req.session.userId)
+            .populate('pairedWith', 'name profilePicture uploadedPhotos');
+
+        if (currentUser && currentUser.pairedWith) {
+            const partner = currentUser.pairedWith;
+
+            // Check if partner is already in matches
+            const isPartnerMatched = matches.some(m =>
+                (m.user1Id._id.toString() === partner._id.toString()) ||
+                (m.user2Id._id.toString() === partner._id.toString())
+            );
+
+            if (!isPartnerMatched) {
+                // Create a "virtual" match object for the response
+                // Structure must match what frontend expects from population
+                // The frontend expects user1Id and user2Id to be the user objects
+                const virtualMatch = {
+                    _id: 'paired_' + partner._id, // unique ID
+                    user1Id: currentUser, // fully populated user object (with pairedWith, but that's fine)
+                    user2Id: partner,      // fully populated user object
+                    isVirtual: true,
+                    timestamp: new Date()
+                };
+
+                // Add to matches
+                matches.unshift(virtualMatch);
+            }
+        }
+
+        res.json({ matches, currentUserId: req.session.userId });
+    } catch (error) {
+        console.error('Error fetching matches:', error);
+        res.status(500).json({ error: error.message });
+    }
 });
 
 // ========================

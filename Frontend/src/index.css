@@ -2,11 +2,13 @@
 
 @theme {
   --color-burgundy: #4A0E1F;
-  --color-burgundy-dark: #3D1119;
+  --color-burgundy-dark: #5C1428;
+  --color-pink: #E91E63;
+  --color-pink-2: #EC407A;
   --color-blush: #FFD6E5;
-  --color-blush-light: #FFF0F5;
+  --color-heart-red: #C62828;
+  --color-off-white: #FFF9FB;
   --color-pink-vibrant: #E91E63;
-  --color-valentine-red: #C62828;
 }
 
 html,

@@ -183,14 +183,6 @@ const LandingPage = () => {
                 </div>
 
                 <div className="flex items-center gap-6">
-                    <div className="hidden md:flex gap-8 text-sm font-medium">
-                        <button className={`hover:text-pink-600 transition-colors ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
-                            Stories
-                        </button>
-                        <button className={`hover:text-pink-600 transition-colors ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
-                            Couples
-                        </button>
-                    </div>
 
                     <motion.button
                         whileHover={{ scale: 1.05 }}

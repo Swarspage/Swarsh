@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Delius&family=Poiret+One&family=Quicksand:wght@300..700&display=swap');
 @import "tailwindcss";
 
 @theme {
@@ -11,6 +12,12 @@
   --color-pink-vibrant: #E91E63;
 }
 
+* {
+  font-family: "Delius";
+  font-weight: bolder;
+}
+
+
 html,
 body {
   margin: 0;
@@ -22,6 +29,7 @@ body {
   overflow-x: hidden;
   /* Prevent horizontal scroll */
   height: 100%;
+
 }
 
 #root {

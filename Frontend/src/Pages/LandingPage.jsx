@@ -1,8 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FaHeart, FaMoon, FaSun } from 'react-icons/fa';
 import { BsHeartFill } from 'react-icons/bs';
+
+import bearKissGif from '../assets/bear kiss GIF.gif';
+import happyDancingGif from '../assets/Happy Happy Happy Dancing GIF.gif';
 
 const LandingPage = () => {
     const navigate = useNavigate();
@@ -13,6 +17,7 @@ const LandingPage = () => {
     const [isMoved, setIsMoved] = useState(false);
     const [hearts, setHearts] = useState([]);
     const [dodgeCount, setDodgeCount] = useState(0);
+    const [showCelebration, setShowCelebration] = useState(false);
 
     // Theme effect
     useEffect(() => {
@@ -30,30 +35,36 @@ const LandingPage = () => {
 
     // Improved No button dodge with better boundaries
     const moveNoButton = (e) => {
-        e?.preventDefault();
+        e?.preventDefault(); // Prevent click handling if it was a tap
         setDodgeCount(prev => prev + 1);
 
         const vw = Math.min(window.innerWidth, document.documentElement.clientWidth);
         const vh = Math.min(window.innerHeight, document.documentElement.clientHeight);
-        const buttonWidth = 150;
-        const buttonHeight = 60;
-        const padding = 100; // Increased padding to keep it well within screen
 
-        // Safe zone boundaries (keep it moving, but stay visible)
-        const maxX = vw - buttonWidth - padding;
-        const maxY = vh - buttonHeight - padding;
+        // Estimate button size (safe estimates)
+        const buttonWidth = 200; // slightly larger to be safe
+        const buttonHeight = 80;
+        const padding = 20; // Reduce padding to allow more movement space on mobile
+
+        // Calculate available space
+        const maxLeft = vw - buttonWidth - padding;
+        const maxTop = vh - buttonHeight - padding;
+
+        // Ensure we have positive values
+        const safeMaxLeft = Math.max(0, maxLeft);
+        const safeMaxTop = Math.max(0, maxTop);
 
         let randomX, randomY;
         let attempts = 0;
 
         // Keep trying until we find a position far enough from current position
         do {
-            randomX = Math.max(padding, Math.random() * (maxX - padding));
-            randomY = Math.max(padding, Math.random() * (maxY - padding));
+            randomX = Math.max(padding, Math.random() * safeMaxLeft);
+            randomY = Math.max(padding, Math.random() * safeMaxTop);
             attempts++;
         } while (attempts < 10 && isMoved &&
-        Math.abs(randomX - noBtnPosition.x) < 200 &&
-            Math.abs(randomY - noBtnPosition.y) < 200);
+        Math.abs(randomX - noBtnPosition.x) < 100 &&
+            Math.abs(randomY - noBtnPosition.y) < 100);
 
         setIsMoved(true);
         setNoBtnPosition({ x: randomX, y: randomY });
@@ -71,6 +82,13 @@ const LandingPage = () => {
         }));
         setHearts(newHearts);
     }, []);
+
+    const handleYesClick = () => {
+        setShowCelebration(true);
+        setTimeout(() => {
+            navigate('/signup');
+        }, 5000);
+    };
 
     return (
         <div className={`min-h-screen w-full transition-all duration-500 relative overflow-hidden flex flex-col
@@ -275,7 +293,7 @@ const LandingPage = () => {
                             transition={{ delay: 0.8 }}
                             whileHover={{ scale: 1.08, boxShadow: '0 10px 40px rgba(233,30,99,0.4)' }}
                             whileTap={{ scale: 0.95 }}
-                            onClick={() => navigate('/signup')}
+                            onClick={handleYesClick}
                             className="bg-pink text-white px-12 py-4 rounded-full font-bold text-lg shadow-xl shadow-pink/40 flex items-center gap-2.5 hover:bg-pink-2 transition-all relative overflow-hidden group"
                         >
                             <span className="relative z-10">Yes</span>
@@ -289,28 +307,52 @@ const LandingPage = () => {
                             />
                         </motion.button>
 
-                        {/* No Button - Dodging */}
-                        <motion.button
-                            initial={{ opacity: 0, x: 50 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: 0.8 }}
-                            onMouseEnter={moveNoButton}
-                            onTouchStart={moveNoButton}
-                            style={isMoved ? {
-                                position: 'fixed',
-                                left: noBtnPosition.x,
-                                top: noBtnPosition.y,
-                                zIndex: 999,
-                            } : {}}
-                            className={`px-12 py-4 rounded-full font-bold text-lg border-2 transition-all duration-500 flex items-center gap-2.5 shadow-lg cursor-pointer
-                            ${isMoved ? 'ease-out' : ''}
-                            ${theme === 'light'
-                                    ? 'bg-white border-gray-300 text-[#4A0E1F] hover:bg-gray-50 shadow-gray-200/50'
-                                    : 'bg-transparent border-white/40 text-white hover:bg-white/5 shadow-black/30'}`}
-                        >
-                            <span>No</span>
-                            <span className="text-sm">💔</span>
-                        </motion.button>
+                        {/* No Button - Placeholder (preserves layout) */}
+                        <div className={`relative ${isMoved ? 'pointer-events-none opacity-0' : ''}`}>
+                            <motion.button
+                                onMouseEnter={!isMoved ? moveNoButton : undefined}
+                                onTouchStart={!isMoved ? moveNoButton : undefined}
+                                onClick={!isMoved ? moveNoButton : undefined}
+                                className={`px-12 py-4 rounded-full font-bold text-lg border-2 transition-all duration-500 flex items-center gap-2.5 shadow-lg cursor-pointer
+                                ${theme === 'light'
+                                        ? 'bg-white border-gray-300 text-[#4A0E1F] hover:bg-gray-50 shadow-gray-200/50'
+                                        : 'bg-transparent border-white/40 text-white hover:bg-white/5 shadow-black/30'}`}
+                            >
+                                <span>No</span>
+                                <span className="text-sm">💔</span>
+                            </motion.button>
+                        </div>
+
+                        {/* Portal Button (The one that moves) */}
+                        {isMoved && createPortal(
+                            <motion.button
+                                initial={{ opacity: 0, scale: 0.5 }}
+                                animate={{ opacity: 1, scale: 1, x: noBtnPosition.x, y: noBtnPosition.y }}
+                                // We use animate x/y instead of left/top style for smoother framer motion performance
+                                transition={{
+                                    type: "spring",
+                                    stiffness: 300,
+                                    damping: 20
+                                }}
+                                onMouseEnter={moveNoButton}
+                                onTouchStart={moveNoButton}
+                                onClick={moveNoButton}
+                                style={{
+                                    position: 'fixed',
+                                    top: 0,
+                                    left: 0,
+                                    zIndex: 9999,
+                                }}
+                                className={`px-12 py-4 rounded-full font-bold text-lg border-2 flex items-center gap-2.5 shadow-lg cursor-pointer
+                                ${theme === 'light'
+                                        ? 'bg-white border-gray-300 text-[#4A0E1F] shadow-gray-200/50'
+                                        : 'bg-gray-900 border-white/40 text-white shadow-black/50'}`}
+                            >
+                                <span>No</span>
+                                <span className="text-sm">💔</span>
+                            </motion.button>,
+                            document.body
+                        )}
                     </div>
 
                     {/* Fun message after dodging */}
@@ -322,11 +364,37 @@ const LandingPage = () => {
                         >
                             {dodgeCount === 1 && "Oops! The button ran away 😏"}
                             {dodgeCount === 2 && "It's shy! Try the other one? 💕"}
-                            {dodgeCount === 3 && "I think it wants you to say yes! 😊"}
                             {dodgeCount >= 4 && "Come on, you know you want to! 💖"}
                         </motion.p>
                     )}
                 </motion.div>
+
+                {/* Celebration GIFs */}
+                <AnimatePresence>
+                    {showCelebration && (
+                        <>
+                            {/* Left GIF: Happy Dancing */}
+                            <motion.div
+                                initial={{ opacity: 0, scale: 0.5, x: -100 }}
+                                animate={{ opacity: 1, scale: 1, x: 0 }}
+                                exit={{ opacity: 0, scale: 0.5 }}
+                                className="fixed left-0 bottom-0 md:bottom-auto md:top-1/2 md:-translate-y-1/2 md:left-10 z-50 w-40 h-40 md:w-64 md:h-64 pointer-events-none"
+                            >
+                                <img src={happyDancingGif} alt="Celebration 1" className="w-full h-full object-contain" />
+                            </motion.div>
+
+                            {/* Right GIF: Bear Kiss */}
+                            <motion.div
+                                initial={{ opacity: 0, scale: 0.5, x: 100 }}
+                                animate={{ opacity: 1, scale: 1, x: 0 }}
+                                exit={{ opacity: 0, scale: 0.5 }}
+                                className="fixed right-0 top-0 md:top-1/2 md:-translate-y-1/2 md:right-10 z-50 w-40 h-40 md:w-64 md:h-64 pointer-events-none"
+                            >
+                                <img src={bearKissGif} alt="Celebration 2" className="w-full h-full object-contain" />
+                            </motion.div>
+                        </>
+                    )}
+                </AnimatePresence>
             </main>
 
             {/* Footer */}

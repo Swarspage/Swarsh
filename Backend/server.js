@@ -297,15 +297,25 @@ app.post('/api/user/upload-photo', upload.single('image'), async (req, res) => {
 
 // Update profile picture
 app.post('/api/user/profile-picture', upload.single('image'), async (req, res) => {
-    if (!req.session.userId) return res.status(401).json({ error: 'Not logged in' });
+    try {
+        if (!req.session.userId) return res.status(401).json({ error: 'Not logged in' });
 
-    const imageUrl = req.file.path;
+        if (!req.file) {
+            return res.status(400).json({ error: 'No image file uploaded' });
+        }
 
-    await User.findByIdAndUpdate(req.session.userId, {
-        profilePicture: imageUrl
-    });
+        const imageUrl = req.file.path;
+        console.log('Profile picture uploaded to Cloudinary:', imageUrl);
 
-    res.json({ message: 'Profile picture updated', url: imageUrl });
+        await User.findByIdAndUpdate(req.session.userId, {
+            profilePicture: imageUrl
+        });
+
+        res.json({ message: 'Profile picture updated', url: imageUrl });
+    } catch (error) {
+        console.error('Profile picture upload error:', error);
+        res.status(500).json({ error: error.message || 'Internal Server Error' });
+    }
 });
 
 // Delete photo

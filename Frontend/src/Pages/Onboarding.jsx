@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -25,7 +26,6 @@ const Onboarding = () => {
 
     const [profilePicturePreview, setProfilePicturePreview] = useState(null);
     const [uploadedPhotosPreview, setUploadedPhotosPreview] = useState([]);
-    const [hoveredPhotoIndex, setHoveredPhotoIndex] = useState(null);
 
     // Theme sync
     useEffect(() => {
@@ -35,16 +35,6 @@ const Onboarding = () => {
             document.documentElement.classList.remove('dark');
         }
     }, [theme]);
-
-    // Floating hearts for decoration
-    const hearts = Array.from({ length: 10 }).map((_, i) => ({
-        id: i,
-        left: Math.random() * 100,
-        delay: Math.random() * 5,
-        duration: 8 + Math.random() * 4,
-        size: 12 + Math.random() * 16,
-        opacity: 0.1 + Math.random() * 0.15
-    }));
 
     const handleProfilePictureChange = (e) => {
         const file = e.target.files[0];
@@ -93,8 +83,6 @@ const Onboarding = () => {
 
     const handleComplete = async () => {
         try {
-            console.log('Saving onboarding data...', formData);
-
             // Update profile with basic info and preferences
             await api.put('/user/profile', {
                 name: formData.name,
@@ -106,7 +94,6 @@ const Onboarding = () => {
                 },
                 bio: `Looking for someone special! 💕`
             });
-            console.log('Profile updated successfully');
 
             // Upload profile picture if exists
             if (formData.profilePicture) {
@@ -115,48 +102,29 @@ const Onboarding = () => {
                 await api.post('/user/profile-picture', profilePicFormData, {
                     headers: { 'Content-Type': 'multipart/form-data' }
                 });
-                console.log('Profile picture uploaded');
             }
 
             // Upload gallery photos
             if (formData.uploadedPhotos && formData.uploadedPhotos.length > 0) {
-                console.log(`Starting to upload ${formData.uploadedPhotos.length} photos...`);
-                let successCount = 0;
-                let failCount = 0;
-
                 for (let i = 0; i < formData.uploadedPhotos.length; i++) {
                     const photo = formData.uploadedPhotos[i];
                     try {
-                        console.log(`Uploading photo ${i + 1}/${formData.uploadedPhotos.length}...`);
                         const photoFormData = new FormData();
                         photoFormData.append('image', photo);
-
-                        // Add caption if exists
                         const caption = formData.captions?.[i] || '';
                         if (caption) {
                             photoFormData.append('caption', caption);
                         }
-
-                        // Add default context tag for now (can be expanded later)
                         photoFormData.append('contextTags', JSON.stringify(['Onboarding']));
 
                         await api.post('/user/upload-photo', photoFormData, {
                             headers: { 'Content-Type': 'multipart/form-data' }
                         });
-                        successCount++;
-                        console.log(`✓ Photo ${i + 1} uploaded successfully`);
                     } catch (photoError) {
-                        failCount++;
-                        console.error(`✗ Photo ${i + 1} failed:`, photoError.response?.data?.error || photoError.message);
+                        console.error(`✗ Photo ${i + 1} failed:`, photoError);
                     }
                 }
-
-                console.log(`Upload complete: ${successCount} succeeded, ${failCount} failed`);
-            } else {
-                console.log('No photos to upload');
             }
-
-            console.log('Onboarding complete! Navigating to explore...');
             navigate('/explore');
         } catch (error) {
             console.error('Error saving onboarding data:', error);
@@ -167,98 +135,50 @@ const Onboarding = () => {
     const totalSteps = 4;
     const progress = (currentStep / totalSteps) * 100;
 
-    return (
-        <div className={`min-h-screen w-full transition-all duration-500 relative overflow-hidden flex flex-col
-            ${theme === 'light'
-                ? 'bg-gradient-to-br from-blush via-white to-pink-100'
-                : 'bg-gradient-to-br from-burgundy via-burgundy-dark to-black'}`}
-        >
-            {/* Animated Background Gradients */}
-            <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                <motion.div
-                    animate={{
-                        scale: [1, 1.2, 1],
-                        opacity: [0.3, 0.5, 0.3],
-                    }}
-                    transition={{
-                        duration: 8,
-                        repeat: Infinity,
-                        ease: "easeInOut"
-                    }}
-                    className={`absolute top-1/4 -left-20 w-96 h-96 rounded-full blur-3xl
-                        ${theme === 'light' ? 'bg-pink-300/30' : 'bg-pink-600/20'}`}
-                />
-                <motion.div
-                    animate={{
-                        scale: [1, 1.3, 1],
-                        opacity: [0.2, 0.4, 0.2],
-                    }}
-                    transition={{
-                        duration: 10,
-                        repeat: Infinity,
-                        ease: "easeInOut",
-                        delay: 1
-                    }}
-                    className={`absolute bottom-1/4 -right-20 w-96 h-96 rounded-full blur-3xl
-                        ${theme === 'light' ? 'bg-pink-200/30' : 'bg-pink-600/15'}`}
-                />
-            </div>
+    // Theme Constants
+    const isLight = theme === 'light';
+    const pageBg = isLight
+        ? 'bg-gradient-to-b from-[#FFFFFF] to-[#A8A7ED]'
+        : 'bg-gradient-to-b from-[#09090F] to-[#12101F]';
 
-            {/* Floating Hearts */}
-            <AnimatePresence>
-                {hearts.map((heart) => (
-                    <motion.div
-                        key={heart.id}
-                        className="absolute pointer-events-none"
-                        initial={{ y: '110vh', opacity: 0 }}
-                        animate={{
-                            y: '-10vh',
-                            x: [0, 20, -20, 0],
-                            opacity: [0, heart.opacity, heart.opacity, 0],
-                            rotate: [0, 10, -10, 0]
-                        }}
-                        transition={{
-                            duration: heart.duration,
-                            repeat: Infinity,
-                            delay: heart.delay,
-                            ease: "linear",
-                            x: { duration: 3, repeat: Infinity, ease: "easeInOut" },
-                            rotate: { duration: 4, repeat: Infinity, ease: "easeInOut" }
-                        }}
-                        style={{ left: `${heart.left}vw` }}
-                    >
-                        <BsHeartFill
-                            size={heart.size}
-                            className={theme === 'light' ? 'text-pink-400' : 'text-heart-red'}
-                            style={{ filter: 'blur(1px)' }}
-                        />
-                    </motion.div>
-                ))}
-            </AnimatePresence>
+    const textPrimary = isLight ? 'text-[#000407]' : 'text-[#F0EFFF]';
+    const textSecondary = isLight ? 'text-[#000407] opacity-60' : 'text-[#F0EFFF] opacity-50';
+    const accentColor = '#A8A7ED';
+
+    const glassStyle = {
+        background: isLight ? 'rgba(255, 255, 255, 0.55)' : 'rgba(168, 167, 237, 0.05)',
+        backdropFilter: 'blur(16px)',
+        border: isLight ? '1px solid rgba(168, 167, 237, 0.2)' : '1px solid rgba(168, 167, 237, 0.1)',
+        boxShadow: isLight ? '0 4px 30px rgba(0, 0, 0, 0.1)' : '0 4px 30px rgba(0, 0, 0, 0.3)',
+    };
+
+    const inputClass = `w-full px-4 py-3 rounded-[14px] outline-none transition-all duration-300 text-sm font-medium
+    ${isLight
+            ? 'bg-white/50 border border-[#A8A7ED]/20 text-[#000407] focus:border-[#A8A7ED] focus:ring-1 focus:ring-[#A8A7ED]'
+            : 'bg-white/5 border border-[#A8A7ED]/10 text-white placeholder-white/30 focus:border-[#A8A7ED]/50 focus:ring-1 focus:ring-[#A8A7ED]/50'}`;
+
+
+    return (
+        <div className={`min-h-screen w-full transition-all duration-500 relative overflow-hidden flex flex-col font-sans ${pageBg}`}>
 
             {/* Main Content */}
             <div className="relative z-10 flex-grow flex items-center justify-center px-4 py-8 overflow-y-auto">
                 <motion.div
                     initial={{ scale: 0.95, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
-                    className={`w-full max-w-2xl rounded-3xl p-8 md:p-12 backdrop-blur-xl shadow-2xl my-auto max-h-[90vh] overflow-y-auto
-                        ${theme === 'light'
-                            ? 'bg-white/80 border border-white/50 shadow-pink-200/50'
-                            : 'bg-black/40 border border-white/10 shadow-black/50'}`}
+                    className="w-full max-w-xl rounded-[32px] p-8 md:p-12"
+                    style={glassStyle}
                 >
                     {/* Progress Indicator */}
-                    <div className="mb-8">
-                        <div className="flex justify-between items-center mb-3">
-                            <span className={`text-sm font-semibold ${theme === 'light' ? 'text-pink-600' : 'text-pink-400'}`}>
-                                STEP {currentStep} OF {totalSteps}
-                            </span>
-                            <span className={`text-sm ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>
-                                {Math.round(progress)}% Completed
+                    <div className="mb-10">
+                        <div className="flex justify-between items-center mb-2">
+                            <span className={`text-[10px] font-bold tracking-widest uppercase text-[#A8A7ED]`}>
+                                Step {currentStep} of {totalSteps}
                             </span>
                         </div>
-                        <div className={`h-2 rounded-full overflow-hidden ${theme === 'light' ? 'bg-gray-200' : 'bg-gray-700'}`}>
+                        <div className={`h-1.5 rounded-full overflow-hidden ${isLight ? 'bg-[#A8A7ED]/20' : 'bg-white/10'}`}>
                             <motion.div
-                                className="h-full bg-gradient-to-r from-pink-500 to-pink-600"
+                                className="h-full bg-[#A8A7ED]"
                                 initial={{ width: 0 }}
                                 animate={{ width: `${progress}%` }}
                                 transition={{ duration: 0.5, ease: "easeOut" }}
@@ -271,16 +191,15 @@ const Onboarding = () => {
                         {currentStep === 1 && (
                             <motion.div
                                 key="step1"
-                                initial={{ opacity: 0, x: 100 }}
+                                initial={{ opacity: 0, x: 20 }}
                                 animate={{ opacity: 1, x: 0 }}
-                                exit={{ opacity: 0, x: -100 }}
-                                transition={{ duration: 0.4 }}
+                                exit={{ opacity: 0, x: -20 }}
+                                transition={{ duration: 0.3 }}
                             >
-                                <h2 className={`text-3xl md:text-4xl font-bold mb-3 ${theme === 'light' ? 'text-gray-800' : 'text-white'}`}
-                                    style={{ fontFamily: "'Playfair Display', serif" }}>
+                                <h2 className={`text-2xl font-bold mb-2 ${textPrimary}`}>
                                     Let's get to know you
                                 </h2>
-                                <p className={`mb-8 ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>
+                                <p className={`mb-8 text-sm ${textSecondary}`}>
                                     Start by adding a photo and your basic details.
                                 </p>
 
@@ -288,30 +207,20 @@ const Onboarding = () => {
                                 <div className="flex justify-center mb-8">
                                     <div className="relative">
                                         <label htmlFor="profilePic" className="cursor-pointer block">
-                                            <div className={`w-32 h-32 rounded-full border-4 border-dashed flex items-center justify-center overflow-hidden
-                                                ${theme === 'light' ? 'border-pink-300 bg-pink-50' : 'border-pink-500/50 bg-pink-900/20'}
-                                                hover:border-pink-500 transition-all`}>
+                                            <div className={`w-32 h-32 rounded-full border-2 border-dashed flex items-center justify-center overflow-hidden transition-all
+                                                ${isLight ? 'border-[#A8A7ED]/50 bg-[#A8A7ED]/5 hover:border-[#A8A7ED]' : 'border-[#A8A7ED]/30 bg-white/5 hover:border-[#A8A7ED]/60'}`}>
                                                 {profilePicturePreview ? (
                                                     <img src={profilePicturePreview} alt="Profile" className="w-full h-full object-cover" />
                                                 ) : (
                                                     <div className="text-center">
-                                                        <FaCamera className="text-pink-500 text-3xl mx-auto mb-1" />
-                                                        <p className={`text-xs font-medium ${theme === 'light' ? 'text-pink-600' : 'text-pink-400'}`}>
-                                                            Upload Photo
+                                                        <FaCamera className="text-[#A8A7ED] text-2xl mx-auto mb-2 opacity-70" />
+                                                        <p className={`text-[10px] font-bold uppercase tracking-wide text-[#A8A7ED]`}>
+                                                            Upload
                                                         </p>
                                                     </div>
                                                 )}
                                             </div>
                                         </label>
-                                        {profilePicturePreview && (
-                                            <motion.button
-                                                initial={{ scale: 0 }}
-                                                animate={{ scale: 1 }}
-                                                className="absolute bottom-0 right-0 bg-pink-600 text-white p-2 rounded-full shadow-lg hover:bg-pink-700 transition-colors"
-                                            >
-                                                <FaEdit className="text-sm" />
-                                            </motion.button>
-                                        )}
                                         <input
                                             type="file"
                                             id="profilePic"
@@ -322,36 +231,26 @@ const Onboarding = () => {
                                     </div>
                                 </div>
 
-                                {/* Name Input */}
-                                <div className="mb-6">
-                                    <label className={`block mb-2 font-semibold text-sm ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'}`}>
-                                        Your Name
-                                    </label>
-                                    <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${theme === 'light' ? 'bg-white border-gray-200' : 'bg-white/5 border-white/10'}`}>
-                                        <FaHeart className={theme === 'light' ? 'text-gray-400' : 'text-gray-500'} />
+                                {/* Inputs */}
+                                <div className="space-y-4 mb-8">
+                                    <div>
+                                        <label className={`block mb-1.5 text-xs font-semibold uppercase tracking-wide ${textSecondary}`}>Name</label>
                                         <input
                                             type="text"
-                                            placeholder="e.g. Cupid"
+                                            placeholder="Your name"
                                             value={formData.name}
                                             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                            className={`flex-1 bg-transparent outline-none ${theme === 'light' ? 'text-gray-800 placeholder-gray-400' : 'text-white placeholder-gray-500'}`}
+                                            className={inputClass}
                                         />
                                     </div>
-                                </div>
-
-                                {/* Age Input */}
-                                <div className="mb-8">
-                                    <label className={`block mb-2 font-semibold text-sm ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'}`}>
-                                        Age
-                                    </label>
-                                    <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${theme === 'light' ? 'bg-white border-gray-200' : 'bg-white/5 border-white/10'}`}>
-                                        <FaHeart className={theme === 'light' ? 'text-gray-400' : 'text-gray-500'} />
+                                    <div>
+                                        <label className={`block mb-1.5 text-xs font-semibold uppercase tracking-wide ${textSecondary}`}>Age</label>
                                         <input
                                             type="number"
-                                            placeholder="e.g. 25"
+                                            placeholder="Your age"
                                             value={formData.age}
                                             onChange={(e) => setFormData({ ...formData, age: e.target.value })}
-                                            className={`flex-1 bg-transparent outline-none ${theme === 'light' ? 'text-gray-800 placeholder-gray-400' : 'text-white placeholder-gray-500'}`}
+                                            className={inputClass}
                                         />
                                     </div>
                                 </div>
@@ -360,18 +259,16 @@ const Onboarding = () => {
                                 <div className="flex justify-between items-center">
                                     <button
                                         onClick={() => navigate('/')}
-                                        className={`text-sm font-medium ${theme === 'light' ? 'text-gray-500 hover:text-gray-700' : 'text-gray-400 hover:text-gray-200'}`}
+                                        className={`text-xs font-bold uppercase tracking-wide hover:opacity-100 opacity-60 transition-opacity ${textPrimary}`}
                                     >
                                         Skip
                                     </button>
-                                    <motion.button
-                                        whileHover={{ scale: 1.05 }}
-                                        whileTap={{ scale: 0.95 }}
+                                    <button
                                         onClick={handleNext}
-                                        className="bg-gradient-to-r from-pink-500 to-pink-600 text-white px-8 py-3 rounded-full font-bold shadow-lg hover:shadow-xl transition-all flex items-center gap-2"
+                                        className="bg-[#A8A7ED] text-white px-8 py-3 rounded-full text-sm font-bold shadow-lg hover:shadow-[#A8A7ED]/30 transition-all active:scale-95 flex items-center gap-2"
                                     >
-                                        Next <FaArrowRight />
-                                    </motion.button>
+                                        Next <FaArrowRight size={12} />
+                                    </button>
                                 </div>
                             </motion.div>
                         )}
@@ -380,98 +277,74 @@ const Onboarding = () => {
                         {currentStep === 2 && (
                             <motion.div
                                 key="step2"
-                                initial={{ opacity: 0, x: 100 }}
+                                initial={{ opacity: 0, x: 20 }}
                                 animate={{ opacity: 1, x: 0 }}
-                                exit={{ opacity: 0, x: -100 }}
-                                transition={{ duration: 0.4 }}
+                                exit={{ opacity: 0, x: -20 }}
+                                transition={{ duration: 0.3 }}
                             >
-                                <h2 className={`text-3xl md:text-4xl font-bold mb-3 ${theme === 'light' ? 'text-gray-800' : 'text-white'}`}
-                                    style={{ fontFamily: "'Playfair Display', serif" }}>
-                                    Tell us your favorites
+                                <h2 className={`text-2xl font-bold mb-2 ${textPrimary}`}>
+                                    Your favorites
                                 </h2>
-                                <p className={`mb-8 ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>
-                                    Help us find your perfect match by sharing what you love.
+                                <p className={`mb-8 text-sm ${textSecondary}`}>
+                                    Help us find your match by sharing what you love.
                                 </p>
 
-                                {/* Favorite Food */}
-                                <div className="mb-6">
-                                    <label className={`block mb-2 font-semibold text-sm ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'}`}>
-                                        FAVORITE FOOD
-                                    </label>
-                                    <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${theme === 'light' ? 'bg-white border-gray-200' : 'bg-white/5 border-white/10'}`}>
-                                        <FaUtensils className="text-pink-500" />
-                                        <input
-                                            type="text"
-                                            placeholder="e.g., Italian, Sushi, Tacos..."
-                                            value={formData.preferences.food}
-                                            onChange={(e) => setFormData({
-                                                ...formData,
-                                                preferences: { ...formData.preferences, food: e.target.value }
-                                            })}
-                                            className={`flex-1 bg-transparent outline-none ${theme === 'light' ? 'text-gray-800 placeholder-gray-400' : 'text-white placeholder-gray-500'}`}
-                                        />
+                                <div className="space-y-5 mb-8">
+                                    <div>
+                                        <label className={`block mb-1.5 text-xs font-semibold uppercase tracking-wide ${textSecondary}`}>Favorite Food</label>
+                                        <div className="relative">
+                                            <FaUtensils className="absolute left-4 top-1/2 -translate-y-1/2 text-[#A8A7ED] opacity-70" size={12} />
+                                            <input
+                                                type="text"
+                                                placeholder="e.g. Sushi, Tacos..."
+                                                value={formData.preferences.food}
+                                                onChange={(e) => setFormData({ ...formData, preferences: { ...formData.preferences, food: e.target.value } })}
+                                                className={`${inputClass} pl-10`}
+                                            />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className={`block mb-1.5 text-xs font-semibold uppercase tracking-wide ${textSecondary}`}>Favorite Song</label>
+                                        <div className="relative">
+                                            <FaMusic className="absolute left-4 top-1/2 -translate-y-1/2 text-[#A8A7ED] opacity-70" size={12} />
+                                            <input
+                                                type="text"
+                                                placeholder="e.g. Love Story..."
+                                                value={formData.preferences.song}
+                                                onChange={(e) => setFormData({ ...formData, preferences: { ...formData.preferences, song: e.target.value } })}
+                                                className={`${inputClass} pl-10`}
+                                            />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className={`block mb-1.5 text-xs font-semibold uppercase tracking-wide ${textSecondary}`}>Favorite Movie</label>
+                                        <div className="relative">
+                                            <FaFilm className="absolute left-4 top-1/2 -translate-y-1/2 text-[#A8A7ED] opacity-70" size={12} />
+                                            <input
+                                                type="text"
+                                                placeholder="e.g. Inception..."
+                                                value={formData.preferences.movie}
+                                                onChange={(e) => setFormData({ ...formData, preferences: { ...formData.preferences, movie: e.target.value } })}
+                                                className={`${inputClass} pl-10`}
+                                            />
+                                        </div>
                                     </div>
                                 </div>
 
-                                {/* Favorite Song */}
-                                <div className="mb-6">
-                                    <label className={`block mb-2 font-semibold text-sm ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'}`}>
-                                        FAVORITE SONG
-                                    </label>
-                                    <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${theme === 'light' ? 'bg-white border-gray-200' : 'bg-white/5 border-white/10'}`}>
-                                        <FaMusic className="text-pink-500" />
-                                        <input
-                                            type="text"
-                                            placeholder="e.g., Taylor Swift - Love Story"
-                                            value={formData.preferences.song}
-                                            onChange={(e) => setFormData({
-                                                ...formData,
-                                                preferences: { ...formData.preferences, song: e.target.value }
-                                            })}
-                                            className={`flex-1 bg-transparent outline-none ${theme === 'light' ? 'text-gray-800 placeholder-gray-400' : 'text-white placeholder-gray-500'}`}
-                                        />
-                                    </div>
-                                </div>
-
-                                {/* Favorite Movie */}
-                                <div className="mb-8">
-                                    <label className={`block mb-2 font-semibold text-sm ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'}`}>
-                                        FAVORITE MOVIE
-                                    </label>
-                                    <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${theme === 'light' ? 'bg-white border-gray-200' : 'bg-white/5 border-white/10'}`}>
-                                        <FaFilm className="text-pink-500" />
-                                        <input
-                                            type="text"
-                                            placeholder="e.g., The Notebook, Titanic..."
-                                            value={formData.preferences.movie}
-                                            onChange={(e) => setFormData({
-                                                ...formData,
-                                                preferences: { ...formData.preferences, movie: e.target.value }
-                                            })}
-                                            className={`flex-1 bg-transparent outline-none ${theme === 'light' ? 'text-gray-800 placeholder-gray-400' : 'text-white placeholder-gray-500'}`}
-                                        />
-                                    </div>
-                                </div>
-
-                                {/* Buttons */}
                                 <div className="flex justify-between gap-4">
-                                    <motion.button
-                                        whileHover={{ scale: 1.05 }}
-                                        whileTap={{ scale: 0.95 }}
+                                    <button
                                         onClick={handleBack}
-                                        className={`px-8 py-3 rounded-full font-bold border-2 transition-all flex items-center gap-2
-                                            ${theme === 'light' ? 'border-gray-300 text-gray-700 hover:bg-gray-50' : 'border-white/20 text-white hover:bg-white/10'}`}
+                                        className={`px-6 py-3 rounded-full text-sm font-bold border transition-all flex items-center gap-2
+                                            ${isLight ? 'border-gray-200 text-gray-600 hover:bg-gray-50' : 'border-white/10 text-white/70 hover:bg-white/5'}`}
                                     >
-                                        <FaArrowLeft /> Back
-                                    </motion.button>
-                                    <motion.button
-                                        whileHover={{ scale: 1.05 }}
-                                        whileTap={{ scale: 0.95 }}
+                                        <FaArrowLeft size={10} /> Back
+                                    </button>
+                                    <button
                                         onClick={handleNext}
-                                        className="bg-gradient-to-r from-pink-500 to-pink-600 text-white px-8 py-3 rounded-full font-bold shadow-lg hover:shadow-xl transition-all flex items-center gap-2"
+                                        className="bg-[#A8A7ED] text-white px-8 py-3 rounded-full text-sm font-bold shadow-lg hover:shadow-[#A8A7ED]/30 transition-all active:scale-95 flex items-center gap-2"
                                     >
-                                        Next <FaArrowRight />
-                                    </motion.button>
+                                        Next <FaArrowRight size={10} />
+                                    </button>
                                 </div>
                             </motion.div>
                         )}
@@ -480,294 +353,135 @@ const Onboarding = () => {
                         {currentStep === 3 && (
                             <motion.div
                                 key="step3"
-                                initial={{ opacity: 0, x: 100 }}
+                                initial={{ opacity: 0, x: 20 }}
                                 animate={{ opacity: 1, x: 0 }}
-                                exit={{ opacity: 0, x: -100 }}
-                                transition={{ duration: 0.4 }}
+                                exit={{ opacity: 0, x: -20 }}
+                                transition={{ duration: 0.3 }}
                             >
-                                <h2 className={`text-3xl md:text-4xl font-bold mb-3 ${theme === 'light' ? 'text-gray-800' : 'text-white'}`}
-                                    style={{ fontFamily: "'Playfair Display', serif" }}>
-                                    Add your moments
+                                <h2 className={`text-2xl font-bold mb-2 ${textPrimary}`}>
+                                    Your Gallery
                                 </h2>
-                                <p className={`mb-8 ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>
-                                    Show off your best self. Upload at least 3 photos to help us find your perfect match.
+                                <p className={`mb-6 text-sm ${textSecondary}`}>
+                                    Upload at least 3 photos.
                                 </p>
 
-                                {/* Photos Grid */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
                                     {uploadedPhotosPreview.map((photo, index) => (
-                                        <motion.div
-                                            key={index}
-                                            initial={{ scale: 0 }}
-                                            animate={{ scale: 1 }}
-                                            className="relative bg-white/5 rounded-2xl p-3 border border-white/10"
-                                        >
-                                            <div className="relative aspect-video rounded-xl overflow-hidden group mb-3">
-                                                <img src={photo} alt={`Upload ${index + 1}`} className="w-full h-full object-cover" />
-                                                {index === 0 && (
-                                                    <div className="absolute top-2 left-2 bg-pink-600 text-white text-xs font-bold px-2 py-1 rounded-full">
-                                                        Main Pic
-                                                    </div>
-                                                )}
-                                                <motion.button
-                                                    onClick={() => removePhoto(index)}
-                                                    className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-full hover:bg-red-600 shadow-lg"
-                                                >
-                                                    <FaTimes size={12} />
-                                                </motion.button>
-                                            </div>
-
-                                            {/* Caption Input */}
-                                            <div className="relative">
-                                                <FaEdit className="absolute top-3 left-3 text-pink-500 text-xs" />
-                                                <input
-                                                    type="text"
-                                                    placeholder="Write a caption..."
-                                                    value={formData.captions?.[index] || ''} // Use safe access
-                                                    onChange={(e) => {
-                                                        const newCaptions = [...(formData.captions || [])];
-                                                        newCaptions[index] = e.target.value;
-                                                        setFormData({ ...formData, captions: newCaptions });
-                                                    }}
-                                                    className={`w-full bg-black/20 rounded-lg py-2 pl-8 pr-3 text-xs outline-none border border-white/10 focus:border-pink-500/50 transition-colors ${theme === 'light' ? 'text-gray-700 bg-gray-50' : 'text-white'}`}
-                                                />
-                                            </div>
-                                        </motion.div>
+                                        <div key={index} className="relative aspect-square rounded-[14px] overflow-hidden group">
+                                            <img src={photo} className="w-full h-full object-cover" />
+                                            <button
+                                                onClick={() => removePhoto(index)}
+                                                className="absolute top-1 right-1 bg-black/50 text-white p-1.5 rounded-full backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity"
+                                            >
+                                                <FaTimes size={10} />
+                                            </button>
+                                        </div>
                                     ))}
 
-                                    {/* Add Photo Slots */}
-                                    {Array.from({ length: 6 - uploadedPhotosPreview.length }).map((_, index) => (
+                                    {/* Add Photo Slot */}
+                                    {Array.from({ length: Math.min(6 - uploadedPhotosPreview.length, 1) }).map((_, index) => (
                                         <label
                                             key={`empty-${index}`}
-                                            htmlFor="photoUpload"
-                                            className={`aspect-video rounded-2xl border-2 border-dashed flex flex-col items-center justify-center cursor-pointer transition-all gap-2
-                                                    ${theme === 'light' ? 'border-pink-200 bg-pink-50 hover:border-pink-400' : 'border-pink-500/30 bg-pink-900/10 hover:border-pink-500'}`}
+                                            className={`aspect-square rounded-[14px] border-2 border-dashed flex flex-col items-center justify-center cursor-pointer transition-all gap-1
+                                                ${isLight ? 'border-[#A8A7ED]/30 hover:bg-[#A8A7ED]/5' : 'border-[#A8A7ED]/20 hover:bg-white/5'}`}
                                         >
-                                            <div className="w-10 h-10 rounded-full bg-pink-500/20 flex items-center justify-center text-pink-500">
-                                                <FaCamera />
-                                            </div>
-                                            <p className={`text-xs font-bold ${theme === 'light' ? 'text-pink-600' : 'text-pink-400'}`}>
-                                                Add Photo
-                                            </p>
+                                            <FaCamera className="text-[#A8A7ED] opacity-60" />
+                                            <span className="text-[10px] font-bold text-[#A8A7ED] uppercase tracking-wide">Add</span>
+                                            <input type="file" accept="image/*" multiple onChange={handlePhotoUpload} className="hidden" />
                                         </label>
                                     ))}
                                 </div>
 
-                                <input
-                                    type="file"
-                                    id="photoUpload"
-                                    accept="image/*"
-                                    multiple
-                                    onChange={handlePhotoUpload}
-                                    className="hidden"
-                                />
-
-                                {/* Photo Tips */}
-                                <motion.div
-                                    initial={{ opacity: 0, y: 20 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    className={`p-4 rounded-xl mb-6 ${theme === 'light' ? 'bg-pink-50' : 'bg-pink-900/20'}`}
-                                >
-                                    <div className="flex items-start gap-2 mb-2">
-                                        <FaCamera className="text-pink-500 mt-1" />
-                                        <span className={`font-semibold ${theme === 'light' ? 'text-gray-800' : 'text-white'}`}>
-                                            Photo Tips
-                                        </span>
-                                    </div>
-                                    <ul className={`text-sm space-y-1 ml-6 ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>
-                                        <li className="flex items-center gap-2">
-                                            <FaCheck className="text-green-500 text-xs" /> Smile and look at the camera
-                                        </li>
-                                        <li className="flex items-center gap-2">
-                                            <FaCheck className="text-green-500 text-xs" /> Include a full body shot
-                                        </li>
-                                        <li className="flex items-center gap-2">
-                                            <FaTimes className="text-red-500 text-xs" /> Avoid group photos as your main pic
-                                        </li>
-                                    </ul>
-                                </motion.div>
-
-                                {/* Photo Counter */}
-                                <div className={`text-center mb-6 ${theme === 'light' ? 'text-pink-600' : 'text-pink-400'} font-semibold`}>
-                                    <FaCamera className="inline mr-2" />
-                                    {uploadedPhotosPreview.length}/3 photos uploaded
-                                    {uploadedPhotosPreview.length >= 3 && " ✓"}
+                                <div className="mb-8">
+                                    {uploadedPhotosPreview.map((_, index) => (
+                                        <div key={index} className="mb-2">
+                                            <input
+                                                type="text"
+                                                placeholder={`Caption for photo ${index + 1}...`}
+                                                value={formData.captions?.[index] || ''}
+                                                onChange={(e) => {
+                                                    const newCaptions = [...(formData.captions || [])];
+                                                    newCaptions[index] = e.target.value;
+                                                    setFormData({ ...formData, captions: newCaptions });
+                                                }}
+                                                className={`${inputClass} py-2 text-xs`}
+                                            />
+                                        </div>
+                                    ))}
                                 </div>
 
-                                {/* Buttons */}
                                 <div className="flex justify-between gap-4">
-                                    <motion.button
-                                        whileHover={{ scale: 1.05 }}
-                                        whileTap={{ scale: 0.95 }}
+                                    <button
                                         onClick={handleBack}
-                                        className={`px-8 py-3 rounded-full font-bold border-2 transition-all
-                                            ${theme === 'light' ? 'border-gray-300 text-gray-700 hover:bg-gray-50' : 'border-white/20 text-white hover:bg-white/10'}`}
+                                        className={`px-6 py-3 rounded-full text-sm font-bold border transition-all
+                                            ${isLight ? 'border-gray-200 text-gray-600 hover:bg-gray-50' : 'border-white/10 text-white/70 hover:bg-white/5'}`}
                                     >
                                         Back
-                                    </motion.button>
-                                    <motion.button
-                                        whileHover={{ scale: uploadedPhotosPreview.length >= 3 ? 1.05 : 1 }}
-                                        whileTap={{ scale: uploadedPhotosPreview.length >= 3 ? 0.95 : 1 }}
+                                    </button>
+                                    <button
                                         onClick={handleNext}
                                         disabled={uploadedPhotosPreview.length < 3}
-                                        className={`px-8 py-3 rounded-full font-bold shadow-lg transition-all
+                                        className={`px-8 py-3 rounded-full text-sm font-bold shadow-lg transition-all active:scale-95
                                             ${uploadedPhotosPreview.length >= 3
-                                                ? 'bg-gradient-to-r from-pink to-pink-2 text-white hover:shadow-xl cursor-pointer'
-                                                : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
+                                                ? 'bg-[#A8A7ED] text-white hover:shadow-[#A8A7ED]/30'
+                                                : 'bg-gray-300 dark:bg-white/10 text-gray-400 dark:text-white/20 cursor-not-allowed'}`}
                                     >
                                         Next
-                                    </motion.button>
+                                    </button>
                                 </div>
                             </motion.div>
                         )}
 
-                        {/* STEP 4: Preview & Complete */}
+                        {/* STEP 4: Review */}
                         {currentStep === 4 && (
                             <motion.div
                                 key="step4"
-                                initial={{ opacity: 0, x: 100 }}
+                                initial={{ opacity: 0, x: 20 }}
                                 animate={{ opacity: 1, x: 0 }}
-                                exit={{ opacity: 0, x: -100 }}
-                                transition={{ duration: 0.4 }}
+                                exit={{ opacity: 0, x: -20 }}
+                                transition={{ duration: 0.3 }}
                                 className="text-center"
                             >
-                                <h2 className={`text-3xl md:text-4xl font-bold mb-3 ${theme === 'light' ? 'text-gray-800' : 'text-white'}`}
-                                    style={{ fontFamily: "'Playfair Display', serif" }}>
-                                    Looking great! 💕
+                                <div className="w-24 h-24 mx-auto bg-[#A8A7ED]/20 rounded-full flex items-center justify-center mb-6">
+                                    <FaCheck className="text-[#A8A7ED] text-4xl" />
+                                </div>
+
+                                <h2 className={`text-2xl font-bold mb-2 ${textPrimary}`}>
+                                    All Set!
                                 </h2>
-                                <p className={`mb-8 ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>
-                                    One last look before you find your match.
+                                <p className={`mb-8 text-sm ${textSecondary}`}>
+                                    You're ready to find your soulmate.
                                 </p>
 
-                                {/* Profile Preview */}
-                                <div className="mb-8">
-                                    {/* Profile Picture */}
-                                    <div className="flex justify-center mb-6">
-                                        <div className="relative">
-                                            <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-pink-500 shadow-xl">
-                                                {profilePicturePreview ? (
-                                                    <img src={profilePicturePreview} alt="Profile" className="w-full h-full object-cover" />
-                                                ) : (
-                                                    <div className={`w-full h-full flex items-center justify-center ${theme === 'light' ? 'bg-pink-100' : 'bg-pink-900/30'}`}>
-                                                        <FaHeart className="text-pink-500 text-4xl" />
-                                                    </div>
-                                                )}
-                                            </div>
-                                            <motion.div
-                                                animate={{ scale: [1, 1.2, 1] }}
-                                                transition={{ duration: 2, repeat: Infinity }}
-                                                className="absolute -bottom-2 -right-2 bg-pink-600 text-white p-2 rounded-full shadow-lg"
-                                            >
-                                                <FaCheck />
-                                            </motion.div>
+                                <div className={`p-4 rounded-[20px] mb-8 text-left border ${isLight ? 'bg-white/40 border-[#A8A7ED]/20' : 'bg-white/5 border-[#A8A7ED]/10'}`}>
+                                    <div className="flex items-center gap-3 mb-4">
+                                        <div className="w-12 h-12 rounded-full overflow-hidden">
+                                            {profilePicturePreview ? (
+                                                <img src={profilePicturePreview} className="w-full h-full object-cover" />
+                                            ) : (
+                                                <div className="w-full h-full bg-[#A8A7ED]" />
+                                            )}
+                                        </div>
+                                        <div>
+                                            <h3 className={`font-bold ${textPrimary}`}>{formData.name}, {formData.age}</h3>
+                                            <p className={`text-xs ${textSecondary}`}>Ready to explore</p>
                                         </div>
                                     </div>
-
-                                    {/* Name & Age */}
-                                    <h3 className={`text-2xl font-bold mb-2 ${theme === 'light' ? 'text-gray-800' : 'text-white'}`}>
-                                        {formData.name || 'Your Name'}, {formData.age || '00'}
-                                    </h3>
-                                    <p className={`text-sm mb-6 ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'} italic`}>
-                                        Lover of {formData.preferences.food || 'good food'}, {formData.preferences.song || 'great music'},
-                                        and {formData.preferences.movie || 'awesome movies'}. Always looking for the next best adventure! 🌟
-                                    </p>
-
-                                    {/* Interest Tags */}
-                                    <div className="flex flex-wrap gap-2 justify-center mb-8">
-                                        {formData.preferences.food && (
-                                            <motion.span
-                                                initial={{ scale: 0 }}
-                                                animate={{ scale: 1 }}
-                                                className={`px-4 py-2 rounded-full text-sm font-medium flex items-center gap-2
-                                                    ${theme === 'light' ? 'bg-pink-100 text-pink-700' : 'bg-pink-900/40 text-pink-300'}`}
-                                            >
-                                                <FaUtensils /> Foodie
-                                            </motion.span>
-                                        )}
-                                        {formData.preferences.song && (
-                                            <motion.span
-                                                initial={{ scale: 0 }}
-                                                animate={{ scale: 1 }}
-                                                transition={{ delay: 0.1 }}
-                                                className={`px-4 py-2 rounded-full text-sm font-medium flex items-center gap-2
-                                                    ${theme === 'light' ? 'bg-pink-100 text-pink-700' : 'bg-pink-900/40 text-pink-300'}`}
-                                            >
-                                                <FaMusic /> Music
-                                            </motion.span>
-                                        )}
-                                        {formData.preferences.movie && (
-                                            <motion.span
-                                                initial={{ scale: 0 }}
-                                                animate={{ scale: 1 }}
-                                                transition={{ delay: 0.2 }}
-                                                className={`px-4 py-2 rounded-full text-sm font-medium flex items-center gap-2
-                                                    ${theme === 'light' ? 'bg-pink-100 text-pink-700' : 'bg-pink-900/40 text-pink-300'}`}
-                                            >
-                                                <FaFilm /> Movies
-                                            </motion.span>
-                                        )}
-                                        <motion.span
-                                            initial={{ scale: 0 }}
-                                            animate={{ scale: 1 }}
-                                            transition={{ delay: 0.3 }}
-                                            className={`px-4 py-2 rounded-full text-sm font-medium flex items-center gap-2
-                                                ${theme === 'light' ? 'bg-pink-100 text-pink-700' : 'bg-pink-900/40 text-pink-300'}`}
-                                        >
-                                            <FaCamera /> Photography
-                                        </motion.span>
-                                    </div>
-
-                                    {/* Photos Preview Label */}
-                                    <div className="flex justify-between items-center mb-4">
-                                        <span className={`text-sm font-semibold ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'} uppercase`}>
-                                            Your Photos
-                                        </span>
-                                        <button
-                                            onClick={() => setCurrentStep(3)}
-                                            className="text-pink-600 text-sm font-medium hover:underline"
-                                        >
-                                            Edit
-                                        </button>
-                                    </div>
-
-                                    {/* Photos Grid */}
-                                    <div className="grid grid-cols-4 gap-3 mb-6">
-                                        {uploadedPhotosPreview.map((photo, index) => (
-                                            <motion.div
-                                                key={index}
-                                                initial={{ scale: 0, rotate: -10 }}
-                                                animate={{ scale: 1, rotate: 0 }}
-                                                transition={{ delay: index * 0.1 }}
-                                                className="aspect-square rounded-xl overflow-hidden shadow-md"
-                                            >
-                                                <img src={photo} alt={`Photo ${index + 1}`} className="w-full h-full object-cover" />
-                                            </motion.div>
+                                    <div className="flex flex-wrap gap-2">
+                                        {[formData.preferences.food, formData.preferences.song, formData.preferences.movie].filter(Boolean).map((tag, i) => (
+                                            <span key={i} className={`px-2 py-1 rounded-md text-[10px] uppercase font-bold tracking-wide
+                                                ${isLight ? 'bg-[#A8A7ED]/10 text-[#A8A7ED]' : 'bg-[#A8A7ED]/20 text-[#A8A7ED]'}`}>
+                                                {tag}
+                                            </span>
                                         ))}
                                     </div>
                                 </div>
 
-                                {/* Complete Button */}
-                                <motion.button
-                                    whileHover={{ scale: 1.05 }}
-                                    whileTap={{ scale: 0.95 }}
-                                    onClick={handleComplete}
-                                    className="w-full bg-gradient-to-r from-pink to-pink-2 text-white py-4 rounded-full font-bold text-lg shadow-xl hover:shadow-2xl transition-all mb-4"
-                                >
-                                    Complete Setup 🎉
-                                </motion.button>
-
-                                <p className={`text-xs ${theme === 'light' ? 'text-gray-500' : 'text-gray-500'}`}>
-                                    By completing setup, you agree to our{' '}
-                                    <span className="text-pink-600 hover:underline cursor-pointer">Terms</span>
-                                    {' '}and{' '}
-                                    <span className="text-pink-600 hover:underline cursor-pointer">Privacy Policy</span>.
-                                </p>
-
                                 <button
-                                    onClick={() => setCurrentStep(1)}
-                                    className={`mt-6 text-sm ${theme === 'light' ? 'text-gray-600 hover:text-gray-800' : 'text-gray-400 hover:text-gray-200'}`}
+                                    onClick={handleComplete}
+                                    className="w-full bg-[#A8A7ED] text-white py-3.5 rounded-full font-bold text-sm shadow-xl hover:shadow-[#A8A7ED]/40 transition-all active:scale-95"
                                 >
-                                    Back to previous step
+                                    Complete Setup
                                 </button>
                             </motion.div>
                         )}

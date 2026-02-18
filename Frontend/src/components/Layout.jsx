@@ -91,7 +91,7 @@ const Layout = () => {
             )}
 
             {/* Main Content Area */}
-            <div className="relative z-10 w-full flex-1 pb-20 md:pb-0 md:pt-24">
+            <div className="relative z-10 w-full flex-1 pb-20 md:pb-0">
                 {/* We pass socket and theme down via Outlet context for pages that need it */}
                 <Outlet context={{ socket, theme, setTheme }} />
             </div>
